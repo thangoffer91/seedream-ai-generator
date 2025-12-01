@@ -3,10 +3,225 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test Seedream Page</title>
+  <title>Seedream V4 Edit – KIE AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 10px; }
+    h1 { margin-bottom: 12px; }
+    .desc { margin-bottom: 20px; color: #555; }
+    .form-group { margin-bottom: 16px; }
+    label { font-weight: bold; display: block; margin-bottom: 6px; }
+    input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; }
+    textarea { min-height: 100px; resize: vertical; }
+    .file-upload { border: 2px dashed #ccc; padding: 20px; text-align: center; cursor: pointer; border-radius: 6px; }
+    .file-upload:hover { border-color: #007bff; }
+    .preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .preview img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }
+    button { background: #007bff; color: #fff; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 15px; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    .row { display: flex; gap: 10px; }
+    .row .col { flex: 1; }
+    .loading { display: none; margin-top: 18px; text-align: center; }
+    .spinner { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #eee; border-top-color: #007bff; animation: spin 1s linear infinite; margin: 0 auto 8px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .result { display: none; margin-top: 24px; }
+    .result img { max-width: 100%; border-radius: 6px; margin-bottom: 10px; border: 1px solid #ddd; }
+    .error { color: red; margin-top: 8px; }
+  </style>
 </head>
 <body>
-  <h1>Seedream test OK</h1>
-  <p>Nếu bạn thấy dòng này, GitHub Pages đã render HTML đúng.</p>
+  <div class="container">
+    <h1>Seedream V4 Edit – KIE AI</h1>
+    <p class="desc">
+      Upload tối đa 10 ảnh tham chiếu (giữ đúng thứ tự), nhập prompt, chọn tỷ lệ, độ phân giải và số ảnh muốn tạo.
+    </p>
+
+    <form id="aiForm">
+      <!-- Mode -->
+      <div class="form-group">
+        <label>Chế độ</label>
+        <select id="mode" name="mode">
+          <option value="create">Create (Tạo mới từ nhiều ảnh tham chiếu)</option>
+          <option value="edit">Edit (Chỉnh sửa theo prompt)</option>
+        </select>
+      </div>
+
+      <!-- Prompt -->
+      <div class="form-group">
+        <label>Prompt (bắt buộc)</label>
+        <textarea id="prompt" name="prompt" required placeholder="Mô tả chi tiết ảnh cần tạo/chỉnh sửa..."></textarea>
+      </div>
+
+      <!-- Images -->
+      <div class="form-group">
+        <label>Ảnh tham chiếu (tối đa 10, giữ đúng thứ tự)</label>
+        <div class="file-upload" onclick="document.getElementById('images').click()">
+          📁 Click để chọn ảnh hoặc kéo thả vào đây
+        </div>
+        <input type="file" id="images" name="images" multiple accept="image/*" style="display:none" />
+        <div id="preview" class="preview"></div>
+        <div id="imageError" class="error"></div>
+      </div>
+
+      <!-- Size + Resolution + Max images -->
+      <div class="row">
+        <div class="col">
+          <div class="form-group">
+            <label>Tỷ lệ (image_size)</label>
+            <select id="imageSize" name="imageSize">
+              <option value="square">Square</option>
+              <option value="square_hd" selected>Square HD</option>
+              <option value="portrait_4_3">Portrait 3:4</option>
+              <option value="portrait_3_2">Portrait 2:3</option>
+              <option value="portrait_16_9">Portrait 9:16</option>
+              <option value="landscape_4_3">Landscape 4:3</option>
+              <option value="landscape_3_2">Landscape 3:2</option>
+              <option value="landscape_16_9">Landscape 16:9</option>
+              <option value="landscape_21_9">Landscape 21:9</option>
+            </select>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label>Độ phân giải (image_resolution)</label>
+            <select id="imageResolution" name="imageResolution">
+              <option value="1K" selected>1K</option>
+              <option value="2K">2K</option>
+              <option value="4K">4K</option>
+            </select>
+          </div>
+        </div>
+        <div class="col">
+          <div class="form-group">
+            <label>Số ảnh tạo (max_images)</label>
+            <select id="maxImages" name="maxImages">
+              <option value="1">1 ảnh</option>
+              <option value="2">2 ảnh</option>
+              <option value="3">3 ảnh</option>
+              <option value="4" selected>4 ảnh</option>
+              <option value="5">5 ảnh</option>
+              <option value="6">6 ảnh (tối đa)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seed -->
+      <div class="form-group">
+        <label>Seed (tùy chọn, để trống nếu không cần)</label>
+        <input type="number" id="seed" name="seed" placeholder="VD: 42" />
+      </div>
+
+      <button type="submit" id="submitBtn">🚀 Gửi yêu cầu</button>
+    </form>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Đang xử lý với KIE AI, vui lòng đợi...</p>
+    </div>
+
+    <div id="result" class="result">
+      <h3>Kết quả</h3>
+      <div id="resultImages"></div>
+    </div>
+  </div>
+
+  <script>
+    const imagesInput = document.getElementById('images');
+    const preview = document.getElementById('preview');
+    const imageError = document.getElementById('imageError');
+
+    // Preview & validate
+    imagesInput.addEventListener('change', () => {
+      preview.innerHTML = '';
+      imageError.textContent = '';
+      const files = Array.from(imagesInput.files);
+
+      if (files.length > 10) {
+        imageError.textContent = 'Tối đa chỉ 10 ảnh.';
+        imagesInput.value = '';
+        return;
+      }
+
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    document.getElementById('aiForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      imageError.textContent = '';
+
+      const prompt = document.getElementById('prompt').value.trim();
+      const files = Array.from(imagesInput.files);
+      if (!prompt) {
+        alert('Prompt là bắt buộc.');
+        return;
+      }
+      if (files.length === 0) {
+        imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu.';
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('mode', document.getElementById('mode').value);
+      formData.append('prompt', prompt);
+      formData.append('image_size', document.getElementById('imageSize').value);
+      formData.append('image_resolution', document.getElementById('imageResolution').value);
+      formData.append('max_images', document.getElementById('maxImages').value);
+      const seedVal = document.getElementById('seed').value;
+      if (seedVal !== '') formData.append('seed', seedVal);
+      formData.append('imageCount', files.length.toString());
+
+      // append từng ảnh theo thứ tự image0, image1,...
+      files.forEach((file, idx) => {
+        formData.append('image' + idx, file);
+      });
+
+      const submitBtn = document.getElementById('submitBtn');
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+      const resultImages = document.getElementById('resultImages');
+
+      submitBtn.disabled = true;
+      loading.style.display = 'block';
+      result.style.display = 'none';
+      resultImages.innerHTML = '';
+
+      try {
+        const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await res.json();
+        if (data.error) {
+          resultImages.innerHTML = '<p class="error">' + data.error + '</p>';
+        } else if (data.images && data.images.length > 0) {
+          data.images.forEach(url => {
+            const img = document.createElement('img');
+            img.src = url;
+            resultImages.appendChild(img);
+          });
+        } else {
+          resultImages.innerHTML = '<p class="error">Không nhận được URL ảnh từ server.</p>';
+        }
+
+        result.style.display = 'block';
+      } catch (err) {
+        alert('Lỗi: ' + err.message);
+      } finally {
+        submitBtn.disabled = false;
+        loading.style.display = 'none';
+      }
+    });
+  </script>
 </body>
 </html>
