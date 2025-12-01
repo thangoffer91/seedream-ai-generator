@@ -128,100 +128,129 @@
   </div>
 
   <script>
-    const imagesInput = document.getElementById('images');
-    const preview = document.getElementById('preview');
-    const imageError = document.getElementById('imageError');
+  const imagesInput = document.getElementById('images');
+  const preview = document.getElementById('preview');
+  const imageError = document.getElementById('imageError');
+  const IMGBB_KEY = '491b3ef8be2a261efff29b2af785c845';
 
-    // Preview & validate
-    imagesInput.addEventListener('change', () => {
-      preview.innerHTML = '';
-      imageError.textContent = '';
-      const files = Array.from(imagesInput.files);
+  // Preview & validate
+  imagesInput.addEventListener('change', () => {
+    preview.innerHTML = '';
+    imageError.textContent = '';
+    const files = Array.from(imagesInput.files);
 
-      if (files.length > 10) {
-        imageError.textContent = 'Tối đa chỉ 10 ảnh.';
-        imagesInput.value = '';
-        return;
+    if (files.length > 10) {
+      imageError.textContent = 'Tối đa chỉ 10 ảnh.';
+      imagesInput.value = '';
+      return;
+    }
+
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = document.createElement('img');
+        img.src = e.target.result;
+        preview.appendChild(img);
+      };
+      reader.readAsDataURL(file);
+    });
+  });
+
+  // Hàm upload 1 ảnh lên ImgBB, trả về URL
+  async function uploadToImgBB(file) {
+    const formData = new FormData();
+    formData.append('key', IMGBB_KEY);
+    formData.append('image', file);
+
+    const res = await fetch('https://api.imgbb.com/1/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error('ImgBB upload failed');
+    }
+    return data.data.url; // URL public của ảnh
+  }
+
+  document.getElementById('aiForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    imageError.textContent = '';
+
+    const prompt = document.getElementById('prompt').value.trim();
+    const files = Array.from(imagesInput.files);
+    if (!prompt) {
+      alert('Prompt là bắt buộc.');
+      return;
+    }
+    if (files.length === 0) {
+      imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu.';
+      return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    const loading = document.getElementById('loading');
+    const result = document.getElementById('result');
+    const resultImages = document.getElementById('resultImages');
+
+    submitBtn.disabled = true;
+    loading.style.display = 'block';
+    result.style.display = 'none';
+    resultImages.innerHTML = '';
+
+    try {
+      // 1) Upload từng ảnh lên ImgBB, giữ đúng thứ tự
+      const imageUrls = [];
+      for (let i = 0; i < files.length; i++) {
+        const url = await uploadToImgBB(files[i]);
+        imageUrls.push(url);
       }
 
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
+      // 2) Gửi JSON sang n8n webhook
+      const payload = {
+        mode: document.getElementById('mode').value,
+        prompt,
+        image_size: document.getElementById('imageSize').value,
+        image_resolution: document.getElementById('imageResolution').value,
+        max_images: parseInt(document.getElementById('maxImages').value, 10),
+        seed: document.getElementById('seed').value || null,
+        image_urls: imageUrls
+      };
+
+      const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      console.log('Response from n8n:', data);
+
+      if (data.error) {
+        resultImages.innerHTML = '<p class="error">' + data.error + '</p>';
+      } else if (data.images && data.images.length > 0) {
+        data.images.forEach(url => {
           const img = document.createElement('img');
-          img.src = e.target.result;
-          preview.appendChild(img);
-        };
-        reader.readAsDataURL(file);
-      });
-    });
-
-    document.getElementById('aiForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      imageError.textContent = '';
-
-      const prompt = document.getElementById('prompt').value.trim();
-      const files = Array.from(imagesInput.files);
-      if (!prompt) {
-        alert('Prompt là bắt buộc.');
-        return;
-      }
-      if (files.length === 0) {
-        imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu.';
-        return;
-      }
-
-      const formData = new FormData();
-      formData.append('mode', document.getElementById('mode').value);
-      formData.append('prompt', prompt);
-      formData.append('image_size', document.getElementById('imageSize').value);
-      formData.append('image_resolution', document.getElementById('imageResolution').value);
-      formData.append('max_images', document.getElementById('maxImages').value);
-      const seedVal = document.getElementById('seed').value;
-      if (seedVal !== '') formData.append('seed', seedVal);
-      formData.append('imageCount', files.length.toString());
-
-      // append từng ảnh theo thứ tự image0, image1,...
-      files.forEach((file, idx) => {
-        formData.append('image' + idx, file);
-      });
-
-      const submitBtn = document.getElementById('submitBtn');
-      const loading = document.getElementById('loading');
-      const result = document.getElementById('result');
-      const resultImages = document.getElementById('resultImages');
-
-      submitBtn.disabled = true;
-      loading.style.display = 'block';
-      result.style.display = 'none';
-      resultImages.innerHTML = '';
-
-      try {
-        const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {
-          method: 'POST',
-          body: formData
+          img.src = url;
+          resultImages.appendChild(img);
         });
-
-        const data = await res.json();
-        if (data.error) {
-          resultImages.innerHTML = '<p class="error">' + data.error + '</p>';
-        } else if (data.images && data.images.length > 0) {
-          data.images.forEach(url => {
-            const img = document.createElement('img');
-            img.src = url;
-            resultImages.appendChild(img);
-          });
-        } else {
-          resultImages.innerHTML = '<p class="error">Không nhận được URL ảnh từ server.</p>';
-        }
-
-        result.style.display = 'block';
-      } catch (err) {
-        alert('Lỗi: ' + err.message);
-      } finally {
-        submitBtn.disabled = false;
-        loading.style.display = 'none';
+      } else {
+        resultImages.innerHTML = '<p class="error">Không nhận được URL ảnh từ server.</p>';
       }
-    });
-  </script>
+
+      result.style.display = 'block';
+    } catch (err) {
+      alert('Lỗi: ' + err.message);
+      console.error(err);
+    } finally {
+      submitBtn.disabled = false;
+      loading.style.display = 'none';
+    }
+  });
+</script>
+
 </body>
 </html>
