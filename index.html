@@ -5,52 +5,202 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Seedream V4 Edit – KIE AI</title>
   <style>
-    /* ... Toàn bộ CSS như bản trước, giữ nguyên ... */
-    /* Thêm các class cho Auto label, highlight modal ... (tăng usability) */
-    .auto-label {
-      padding: 2px 7px;
-      border-radius: 7px;
-      background: #e0e7ff;
-      color: #1e293b;
-      font-size: 11px;
-      margin-left: 7px;
-      font-weight: 600;
-      box-shadow: 0 1px 5px #6366f13b;
-      display: inline-block;
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      background: radial-gradient(circle at top, #111827, #020617);
+      color: #e5e7eb;
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
-    .modal-overlay { /* giữ như mọi modal preview ở các bản trước */ }
-    /* ... giữ các class modal ... */
-    /* Các class CSS bên trên đều được giữ nguyên từ bản giao diện đẹp trước đó */
+    .shell {
+      max-width: 1200px;
+      width: 100%;
+      display: grid;
+      grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .shell { grid-template-columns: 1fr; }
+    }
+    .card {
+      position: relative;
+      border-radius: 18px;
+      padding: 24px 24px 28px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 18px 45px rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(18px);
+    }
+    h1 { font-size: 22px; font-weight: 600; margin-bottom: 6px; color: #f9fafb; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.18);
+      color: #bfdbfe;
+      font-size: 11px;
+      margin-bottom: 10px;
+    }
+    .badge span {
+      width: 6px; height: 6px; border-radius: 999px; background: #22c55e;
+    }
+    .desc { margin-bottom: 18px; color: #9ca3af; font-size: 13px; }
+    .form-group { margin-bottom: 14px; }
+    label { font-weight: 500; display: block; margin-bottom: 6px; font-size: 13px; color: #e5e7eb; }
+    input, select, textarea {
+      width: 100%; padding: 9px 11px; border-radius: 10px;
+      border: 1px solid rgba(55, 65, 81, 0.9);
+      font-size: 13px;
+      background: rgba(15, 23, 42, 0.7);
+      color: #e5e7eb; outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+      background: rgba(15, 23, 42, 0.95);
+    }
+    textarea { min-height: 90px; resize: vertical; }
+
+    .file-upload {
+      border: 1.5px dashed rgba(75, 85, 99, 0.9); padding: 18px;
+      text-align: center; cursor: pointer; border-radius: 12px;
+      font-size: 13px; color: #9ca3af;
+      background: rgba(15, 23, 42, 0.6);
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+    }
+    .file-upload:hover {
+      border-color: #3b82f6;
+      background: rgba(15, 23, 42, 0.9);
+      transform: translateY(-1px);
+    }
+    .preview {
+      display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;
+    }
+    .thumb {
+      position: relative; width: 72px; height: 72px; border-radius: 10px;
+      overflow: hidden; border: 1px solid rgba(55, 65, 81, 0.9); background: #020617;
+    }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb-remove {
+      position: absolute; top: 4px; right: 4px; width: 18px; height: 18px;
+      border-radius: 999px; border: none; background: rgba(15,23,42,0.85);
+      color: #e5e7eb; font-size: 11px; line-height: 18px; text-align: center;
+      cursor: pointer; opacity: 0; transition: opacity 0.15s;
+    }
+    .thumb:hover .thumb-remove { opacity: 1; }
+
+    button {
+      background: linear-gradient(135deg, #3b82f6, #6366f1);
+      color: #fff; padding: 10px 20px; border-radius: 999px; border: none;
+      cursor: pointer; font-size: 14px; font-weight: 500; display: inline-flex;
+      align-items: center; gap: 6px;
+      box-shadow: 0 12px 30px rgba(37, 99, 235, 0.45);
+      transition: transform 0.08s, box-shadow 0.08s, opacity 0.1s;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 16px 40px rgba(37, 99, 235, 0.6);
+    }
+    button:disabled {
+      opacity: 0.55; cursor: not-allowed; box-shadow: none;
+    }
+    .row { display: flex; gap: 10px; }
+    .row .col { flex: 1; }
+    .loading {
+      display: none; margin-top: 18px; text-align: center; font-size: 13px; color: #d1d5db;
+    }
+    .spinner {
+      width: 26px; height: 26px; border-radius: 50%; border: 3px solid rgba(55, 65, 81, 0.9);
+      border-top-color: #3b82f6; animation: spin 1s linear infinite;
+      margin: 0 auto 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { color: #f97373; margin-top: 6px; font-size: 12px; }
+    .auto-label {
+      padding: 2px 7px; border-radius: 7px; background: #e0e7ff;
+      color: #1e293b; font-size: 11px; margin-left: 7px; font-weight: 600;
+      box-shadow: 0 1px 5px #6366f13b; display: inline-block;
+    }
+    .results-panel {
+      position: relative; border-radius: 18px; padding: 18px 18px 20px;
+      background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(148, 163, 184, 0.3);
+      box-shadow: 0 18px 45px rgba(15,23,42,0.8); backdrop-filter: blur(18px);
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .results-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .results-header h3 { font-size: 15px; font-weight: 500; color: #e5e7eb; }
+    .results-sub { font-size: 12px; color: #9ca3af; }
+    .result-grid {
+      display: grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap: 10px;
+    }
+    .result-card {
+      border-radius: 12px; background: rgba(15,23,42,0.9);
+      border: 1px solid rgba(55,65,81,0.9); padding: 8px;
+      display: flex; flex-direction: column; gap: 6px;
+    }
+    .result-card img {
+      width: 100%; border-radius: 8px; display: block; cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .result-card img:hover { transform: scale(1.03); box-shadow: 0 6px 20px rgba(59,130,246,0.5); }
+    .download-btn {
+      margin-top: 2px; border-radius: 999px; border: 1px solid rgba(55,65,81,0.9);
+      background: rgba(15,23,42,0.9); color: #e5e7eb; font-size: 11px;
+      padding: 5px 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .download-btn:hover { border-color: #3b82f6; color: #bfdbfe; }
+    .download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .results-empty { font-size: 12px; color: #6b7280; text-align: center; padding: 16px 4px; }
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85); z-index: 9999; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-overlay img {
+      max-width: 90%; max-height: 90%; border-radius: 12px; box-shadow: 0 12px 60px rgba(0,0,0,0.6);
+    }
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; background: rgba(15,23,42,0.95);
+      border: 1px solid rgba(148,163,184,0.5); color: #e5e7eb;
+      padding: 12px 18px; border-radius: 12px; font-size: 13px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5); z-index: 10000; opacity: 0;
+      transform: translateY(20px); transition: opacity 0.3s, transform 0.3s;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
   </style>
 </head>
 <body>
   <div class="shell">
-    <!-- Form bên trái -->
     <div class="card">
       <div class="badge"><span></span> Realtime Seedream V4 Edit</div>
       <h1>Seedream V4 Edit – KIE AI</h1>
       <p class="desc">
-        Upload tối đa 10 ảnh tham chiếu (PNG/JPG, giữ đúng thứ tự), nhập prompt. 
-        <strong>Bạn có thể dán (Ctrl+V) trực tiếp từ clipboard, hoặc kéo & thả.</strong>
+        Upload tối đa 10 ảnh tham chiếu (PNG/JPG, giữ đúng thứ tự), nhập prompt.
+        <strong>Bạn có thể dán (Ctrl+V) từ clipboard, hoặc kéo & thả.</strong>
       </p>
-
       <form id="aiForm">
         <div class="form-group">
           <label>Chế độ</label>
           <select id="mode" name="mode">
-            <option value="create">Create – Tạo mới từ nhiều ảnh tham chiếu</option>
-            <option value="edit" selected>Edit – Chỉnh sửa theo prompt</option>
+            <option value="create">Create – Tạo mới</option>
+            <option value="edit" selected>Edit – Chỉnh sửa</option>
           </select>
         </div>
         <div class="form-group">
           <label>Prompt (bắt buộc)</label>
-          <textarea id="prompt" name="prompt" required placeholder="Mô tả chi tiết ảnh cần tạo/chỉnh sửa..."></textarea>
+          <textarea id="prompt" required placeholder="Mô tả chi tiết ảnh cần tạo..."></textarea>
         </div>
         <div class="form-group">
           <label>Ảnh tham chiếu (tối đa 10 PNG/JPG)</label>
-          <div class="file-upload" id="fileDrop">
-            📁 Click để chọn ảnh hoặc kéo thả vào đây
-          </div>
+          <div class="file-upload" id="fileDrop">📁 Click để chọn ảnh hoặc kéo thả vào đây</div>
           <input type="file" id="images" accept="image/*" multiple style="display:none" />
           <div id="preview" class="preview"></div>
           <div id="imageError" class="error"></div>
@@ -60,7 +210,7 @@
             Tỷ lệ (image_size)
             <span class="auto-label" id="imageSizeAutoLabel">Auto</span>
           </label>
-          <select id="imageSize" name="imageSize">
+          <select id="imageSize">
             <option value="" selected>Auto (theo ratio ảnh gốc)</option>
             <option value="square">Square</option>
             <option value="square_hd">Square HD</option>
@@ -77,7 +227,7 @@
           <div class="col">
             <div class="form-group">
               <label>Độ phân giải (image_resolution)</label>
-              <select id="imageResolution" name="imageResolution">
+              <select id="imageResolution">
                 <option value="1K" selected>1K</option>
                 <option value="2K">2K</option>
                 <option value="4K">4K</option>
@@ -85,7 +235,6 @@
             </div>
           </div>
         </div>
-
         <button type="submit" id="submitBtn">🚀 Gửi yêu cầu</button>
       </form>
       <div id="loading" class="loading">
@@ -93,28 +242,21 @@
         <p>Đang xử lý với KIE AI, vui lòng đợi...</p>
       </div>
     </div>
-
-    <!-- Kết quả bên phải -->
     <aside class="results-panel">
       <div class="results-header">
         <div>
           <h3>Kết quả Seedream V4</h3>
-          <p class="results-sub">Ảnh sẽ hiển thị tự động sau khi xử lý xong. Nhấn vào ảnh để xem to hơn.</p>
+          <p class="results-sub">Ảnh sẽ hiển thị tự động sau khi xử lý. Nhấn vào ảnh để xem to hơn.</p>
         </div>
       </div>
       <div id="resultImages" class="result-grid"></div>
-      <div id="resultsEmpty" class="results-empty">
-        Chưa có kết quả. Gửi prompt và ảnh để bắt đầu.
-      </div>
+      <div id="resultsEmpty" class="results-empty">Chưa có kết quả. Gửi prompt và ảnh để bắt đầu.</div>
     </aside>
   </div>
-
-  <!-- Modal zoom ảnh -->
   <div class="modal-overlay" id="modalOverlay">
     <img id="modalImg" src="" alt="Preview" />
   </div>
   <div class="toast" id="toast"></div>
-
   <script>
     const imagesInput = document.getElementById('images');
     const fileDrop = document.getElementById('fileDrop');
@@ -128,17 +270,11 @@
     const modalImg = document.getElementById('modalImg');
     const toast = document.getElementById('toast');
     const IMGBB_KEY = '491b3ef8be2a261efff29b2af785c845';
-
     let selectedFiles = [];
-
     function showToast(msg, duration = 3000) {
-      toast.textContent = msg;
-      toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, duration);
+      toast.textContent = msg; toast.classList.add('show');
+      setTimeout(() => { toast.classList.remove('show'); }, duration);
     }
-
     function renderPreview() {
       preview.innerHTML = '';
       selectedFiles.forEach((file, index) => {
@@ -146,301 +282,131 @@
         reader.onload = e => {
           const wrapper = document.createElement('div');
           wrapper.className = 'thumb';
-          const img = document.createElement('img');
-          img.src = e.target.result;
+          const img = document.createElement('img'); img.src = e.target.result;
           const removeBtn = document.createElement('button');
-          removeBtn.className = 'thumb-remove';
-          removeBtn.type = 'button';
-          removeBtn.textContent = '×';
-          removeBtn.title = 'Xóa ảnh này';
-          removeBtn.onclick = () => {
-            selectedFiles.splice(index, 1);
-            renderPreview();
-          };
-          wrapper.appendChild(img);
-          wrapper.appendChild(removeBtn);
-          preview.appendChild(wrapper);
-        };
-        reader.readAsDataURL(file);
+          removeBtn.className = 'thumb-remove'; removeBtn.type = 'button'; removeBtn.textContent = '×'; removeBtn.title = 'Xóa ảnh này';
+          removeBtn.onclick = () => { selectedFiles.splice(index, 1); renderPreview(); };
+          wrapper.appendChild(img); wrapper.appendChild(removeBtn); preview.appendChild(wrapper);
+        }; reader.readAsDataURL(file);
       });
     }
-
-    function getRatioFromImageSize(sizePreset) {
-      const map = {
-        'square': 1.0, 'square_hd': 1.0,
-        'portrait_4_3': 0.75, 'portrait_3_2': 0.67, 'portrait_16_9': 0.56,
-        'landscape_4_3': 1.33, 'landscape_3_2': 1.5, 'landscape_16_9': 1.78, 'landscape_21_9': 2.33
-      };
-      return map[sizePreset] || 1.0;
+    function addFiles(files) {
+      const incoming = Array.from(files);
+      if (selectedFiles.length + incoming.length > 10) { imageError.textContent = 'Tối đa chỉ 10 ảnh tham chiếu.'; return; }
+      const valid = incoming.filter(f => /image\/(png|jpeg|jpg)/i.test(f.type));
+      if (valid.length < incoming.length) { imageError.textContent = 'Một số ảnh không phải PNG/JPG nên đã bị bỏ qua.'; }
+      selectedFiles = selectedFiles.concat(valid); renderPreview();
     }
-
-    // Pad ảnh gốc về tỷ lệ target bằng Canvas
+    fileDrop.addEventListener('click', () => imagesInput.click());
+    imagesInput.addEventListener('change', (e) => { imageError.textContent = ''; if (e.target.files && e.target.files.length > 0) { addFiles(e.target.files); } imagesInput.value = ''; });
+    ['dragenter', 'dragover'].forEach(evt => { fileDrop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); fileDrop.style.borderColor = '#3b82f6'; }); });
+    ['dragleave', 'drop'].forEach(evt => { fileDrop.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); fileDrop.style.borderColor = 'rgba(75, 85, 99, 0.9)'; }); });
+    fileDrop.addEventListener('drop', (e) => { imageError.textContent = ''; const dt = e.dataTransfer; if (dt && dt.files) { addFiles(dt.files); } });
+    document.addEventListener('paste', (e) => { const items = e.clipboardData.items; const files = []; for (let i = 0; i < items.length; i++) { if (items[i].type.indexOf('image') !== -1) { const blob = items[i].getAsFile(); if (blob) { files.push(blob); } } } if (files.length > 0) { imageError.textContent = ''; addFiles(files); showToast('✅ Đã paste ' + files.length + ' ảnh từ clipboard.'); } });
+    async function downloadImage(url, filename = 'seedream-output.png', btnEl) {
+      try {
+        btnEl.disabled = true; btnEl.textContent = '⏳ Đang tải...';
+        const res = await fetch(url); const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob); link.download = filename;
+        document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(link.href);
+        showToast('✅ Đã tải ảnh: ' + filename);
+      } catch (err) { showToast('❌ Lỗi tải ảnh: ' + err.message); }
+      finally { btnEl.disabled = false; btnEl.textContent = '⬇ Tải ảnh'; }
+    }
+    function openZoomModal(src) { modalImg.src = src; modalOverlay.classList.add('show'); }
+    function closeZoomModal() { modalOverlay.classList.remove('show'); modalImg.src = ''; }
+    modalOverlay.addEventListener('click', closeZoomModal);
+    imageSizeSelect.addEventListener('change', function() {
+      if (!this.value) { imageSizeAutoLabel.style.background = '#e0e7ff'; imageSizeAutoLabel.style.color = '#1e293b'; imageSizeAutoLabel.textContent = 'Auto'; }
+      else { imageSizeAutoLabel.style.background = '#6366f1'; imageSizeAutoLabel.style.color = '#fff'; imageSizeAutoLabel.textContent = this.value; }
+    });
     async function padImageToRatio(file, targetRatio) {
       return new Promise((resolve) => {
         const reader = new FileReader();
         reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
-            const origW = img.width;
-            const origH = img.height;
-            const origRatio = origW / origH;
+            const origW = img.width; const origH = img.height; const origRatio = origW / origH;
             let newW, newH;
-            if (origRatio > targetRatio) {
-              newW = origW;
-              newH = Math.round(origW / targetRatio);
-            } else {
-              newH = origH;
-              newW = Math.round(origH * targetRatio);
-            }
-            const canvas = document.createElement('canvas');
-            canvas.width = newW;
-            canvas.height = newH;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, newW, newH);
-            const x = (newW - origW) / 2;
-            const y = (newH - origH) / 2;
+            if (origRatio > targetRatio) { newW = origW; newH = Math.round(origW / targetRatio); }
+            else { newH = origH; newW = Math.round(origH * targetRatio); }
+            const canvas = document.createElement('canvas'); canvas.width = newW; canvas.height = newH;
+            const ctx = canvas.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, newW, newH);
+            const x = (newW - origW) / 2; const y = (newH - origH) / 2;
             ctx.drawImage(img, x, y);
-            canvas.toBlob((blob) => {
-              const paddedFile = new File([blob], file.name, { type: file.type });
-              resolve(paddedFile);
-            }, file.type);
-          };
-          img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
+            canvas.toBlob((blob) => { const paddedFile = new File([blob], file.name, { type: file.type }); resolve(paddedFile); }, file.type);
+          }; img.src = e.target.result;
+        }; reader.readAsDataURL(file);
       });
     }
-
-    function addFiles(files) {
-      const incoming = Array.from(files);
-      if (selectedFiles.length + incoming.length > 10) {
-        imageError.textContent = 'Tối đa chỉ 10 ảnh tham chiếu.';
-        return;
-      }
-      const valid = incoming.filter(f => /image\/(png|jpeg|jpg)/i.test(f.type));
-      if (valid.length < incoming.length) {
-        imageError.textContent = 'Một số ảnh không phải PNG/JPG nên đã bị bỏ qua.';
-      }
-      selectedFiles = selectedFiles.concat(valid);
-      renderPreview();
-    }
-
-    fileDrop.addEventListener('click', () => imagesInput.click());
-    imagesInput.addEventListener('change', (e) => {
-      imageError.textContent = '';
-      if (e.target.files && e.target.files.length > 0) {
-        addFiles(e.target.files);
-      }
-      imagesInput.value = '';
-    });
-    ['dragenter', 'dragover'].forEach(evt => {
-      fileDrop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        fileDrop.style.borderColor = '#3b82f6';
-      });
-    });
-    ['dragleave', 'drop'].forEach(evt => {
-      fileDrop.addEventListener(evt, (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        fileDrop.style.borderColor = 'rgba(75, 85, 99, 0.9)';
-      });
-    });
-    fileDrop.addEventListener('drop', (e) => {
-      imageError.textContent = '';
-      const dt = e.dataTransfer;
-      if (dt && dt.files) {
-        addFiles(dt.files);
-      }
-    });
-
-    document.addEventListener('paste', (e) => {
-      const items = e.clipboardData.items;
-      const files = [];
-      for (let i = 0; i < items.length; i++) {
-        if (items[i].type.indexOf('image') !== -1) {
-          const blob = items[i].getAsFile();
-          if (blob) {
-            files.push(blob);
-          }
-        }
-      }
-      if (files.length > 0) {
-        imageError.textContent = '';
-        addFiles(files);
-        showToast('✅ Đã paste ' + files.length + ' ảnh từ clipboard.');
-      }
-    });
-
-    // Download với feedback
-    async function downloadImage(url, filename = 'seedream-output.png', btnEl) {
-      try {
-        btnEl.disabled = true;
-        btnEl.textContent = '⏳ Đang tải...';
-        const res = await fetch(url);
-        const blob = await res.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        URL.revokeObjectURL(link.href);
-        showToast('✅ Đã tải ảnh: ' + filename);
-      } catch (err) {
-        showToast('❌ Lỗi tải ảnh: ' + err.message);
-      } finally {
-        btnEl.disabled = false;
-        btnEl.textContent = '⬇ Tải ảnh';
-      }
-    }
-
-    // Modal zoom
-    function openZoomModal(src) {
-      modalImg.src = src;
-      modalOverlay.classList.add('show');
-    }
-    function closeZoomModal() {
-      modalOverlay.classList.remove('show');
-      modalImg.src = '';
-    }
-    modalOverlay.addEventListener('click', closeZoomModal);
-
-    // Highlight Auto khi chọn
-    imageSizeSelect.addEventListener('change', function() {
-      if (!this.value) {
-        imageSizeAutoLabel.style.background = '#e0e7ff';
-        imageSizeAutoLabel.style.color = '#1e293b';
-        imageSizeAutoLabel.textContent = 'Auto';
-      } else {
-        imageSizeAutoLabel.style.background = '#6366f1';
-        imageSizeAutoLabel.style.color = '#fff';
-        imageSizeAutoLabel.textContent = this.value;
-      }
-    });
-
-    // Hàm upload ảnh – nếu auto thì pad
     async function uploadToImgBB(file) {
       const formData = new FormData();
       formData.append('key', IMGBB_KEY);
       formData.append('image', file);
       const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!data.success) throw new Error('ImgBB upload failed');
-      return data.data.url;
+      const data = await res.json(); if (!data.success) throw new Error('ImgBB upload failed'); return data.data.url;
     }
-
     document.getElementById('aiForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      imageError.textContent = '';
+      e.preventDefault(); imageError.textContent = '';
       const prompt = document.getElementById('prompt').value.trim();
-      if (!prompt) {
-        alert('Prompt là bắt buộc.');
-        return;
-      }
-      if (selectedFiles.length === 0) {
-        imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu PNG/JPG.';
-        return;
-      }
+      if (!prompt) { alert('Prompt là bắt buộc.'); return; }
+      if (selectedFiles.length === 0) { imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu PNG/JPG.'; return; }
       const submitBtn = document.getElementById('submitBtn');
       const loading = document.getElementById('loading');
-      submitBtn.disabled = true;
-      loading.style.display = 'block';
-      resultImages.innerHTML = '';
-      resultsEmpty.style.display = 'none';
-
+      submitBtn.disabled = true; loading.style.display = 'block';
+      resultImages.innerHTML = ''; resultsEmpty.style.display = 'none';
       const ratioPreset = imageSizeSelect.value;
-      const autoPad = !ratioPreset; // Auto nếu không chọn tỷ lệ
-
+      const autoPad = !ratioPreset;
       try {
-        // Upload từng ảnh (pad nếu auto)
         const imageUrls = [];
         for (let i = 0; i < selectedFiles.length; i++) {
           let fileToSend = selectedFiles[i];
           if (autoPad) {
-            // Detect ratio từ ảnh
             const ratio = await new Promise((res) => {
               const reader = new FileReader();
-              reader.onload = (ev) => {
-                const img = new Image();
-                img.onload = () => { res(img.width / img.height); };
-                img.src = ev.target.result;
-              };
+              reader.onload = (ev) => { const img = new Image(); img.onload = () => { res(img.width / img.height); }; img.src = ev.target.result; };
               reader.readAsDataURL(fileToSend);
             });
-            // Chọn preset gần nhất
             const delta = [1.0, 0.75, 0.67, 0.56, 1.33, 1.5, 1.78, 2.33];
             let closest = delta[0], idx = 0;
-            for (let j = 0; j < delta.length; j++) {
-              if (Math.abs(ratio - delta[j]) < Math.abs(ratio - closest)) {
-                closest = delta[j]; idx = j;
-              }
-            }
-            // Pad về đúng ratio gần nhất
+            for (let j = 0; j < delta.length; j++) { if (Math.abs(ratio - delta[j]) < Math.abs(ratio - closest)) { closest = delta[j]; idx = j; } }
             fileToSend = await padImageToRatio(fileToSend, closest);
           }
           const url = await uploadToImgBB(fileToSend);
           imageUrls.push(url);
         }
-
-        // Gửi JSON sang webhook
         const payload = {
           mode: document.getElementById('mode').value,
           prompt,
-          image_size: ratioPreset || '', // Auto gửi '', server có thể set mặc định (bạn chỉnh params phía backend nếu cần)
+          image_size: ratioPreset || '',
           image_resolution: document.getElementById('imageResolution').value || '1K',
           max_images: 1,
           image_urls: imageUrls
         };
         const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
-        console.log('Response from n8n:', data);
-
         resultImages.innerHTML = '';
-        if (data.error) {
-          resultsEmpty.style.display = 'block';
-          resultsEmpty.textContent = 'Lỗi: ' + (data.error.state || data.error);
-        } else if (data.images && data.images.length > 0) {
-          // Show image full-width (auto zoom)
+        if (data.error) { resultsEmpty.style.display = 'block'; resultsEmpty.textContent = 'Lỗi: ' + (data.error.state || data.error); }
+        else if (data.images && data.images.length > 0) {
           data.images.forEach((url, idx) => {
-            const card = document.createElement('div');
-            card.className = 'result-card';
-            const img = document.createElement('img');
-            img.src = url;
-            img.onclick = () => openZoomModal(url);
+            const card = document.createElement('div'); card.className = 'result-card';
+            const img = document.createElement('img'); img.src = url; img.onclick = () => openZoomModal(url);
             card.appendChild(img);
-            const btn = document.createElement('button');
-            btn.className = 'download-btn';
-            btn.type = 'button';
-            btn.textContent = '⬇ Tải ảnh';
-            btn.onclick = function() {
-              downloadImage(url, `seedream-${idx + 1}.png`, btn);
-            };
-            card.appendChild(btn);
-            resultImages.appendChild(card);
+            const btn = document.createElement('button'); btn.className = 'download-btn'; btn.type = 'button'; btn.textContent = '⬇ Tải ảnh';
+            btn.onclick = function() { downloadImage(url, `seedream-${idx + 1}.png`, btn); };
+            card.appendChild(btn); resultImages.appendChild(card);
           });
-          resultsEmpty.style.display = 'none';
-          // Auto open preview modal sau khi nhận kết quả
-          openZoomModal(data.images[0]);
+          resultsEmpty.style.display = 'none'; openZoomModal(data.images[0]);
           showToast('✅ Xử lý xong! Nhấn vào ảnh để phóng to.');
-        } else {
-          resultsEmpty.style.display = 'block';
-          resultsEmpty.textContent = 'Không nhận được URL ảnh từ server.';
-        }
+        } else { resultsEmpty.style.display = 'block'; resultsEmpty.textContent = 'Không nhận được URL ảnh từ server.'; }
       } catch (err) {
-        alert('Lỗi: ' + err.message);
-        resultsEmpty.style.display = 'block';
+        alert('Lỗi: ' + err.message); resultsEmpty.style.display = 'block';
         resultsEmpty.textContent = 'Đã xảy ra lỗi khi xử lý yêu cầu.';
-      } finally {
-        submitBtn.disabled = false;
-        loading.style.display = 'none';
-      }
+      } finally { submitBtn.disabled = false; loading.style.display = 'none'; }
     });
   </script>
 </body>
