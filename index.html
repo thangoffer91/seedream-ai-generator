@@ -24,9 +24,7 @@
       gap: 24px;
     }
     @media (max-width: 900px) {
-      .shell {
-        grid-template-columns: 1fr;
-      }
+      .shell { grid-template-columns: 1fr; }
     }
     .card {
       position: relative;
@@ -187,7 +185,6 @@
 
     .error { color: #f97373; margin-top: 6px; font-size: 12px; }
 
-    /* Panel kết quả bên phải */
     .results-panel {
       position: relative;
       border-radius: 18px;
@@ -270,7 +267,6 @@
       padding: 16px 4px;
     }
 
-    /* Modal zoom preview */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -284,9 +280,7 @@
       justify-content: center;
       cursor: pointer;
     }
-    .modal-overlay.show {
-      display: flex;
-    }
+    .modal-overlay.show { display: flex; }
     .modal-overlay img {
       max-width: 90%;
       max-height: 90%;
@@ -294,7 +288,6 @@
       box-shadow: 0 12px 60px rgba(0,0,0,0.6);
     }
 
-    /* Toast notification */
     .toast {
       position: fixed;
       bottom: 24px;
@@ -319,7 +312,6 @@
 </head>
 <body>
   <div class="shell">
-    <!-- Form bên trái -->
     <div class="card">
       <div class="badge"><span></span> Realtime Seedream V4 Edit</div>
       <h1>Seedream V4 Edit – KIE AI</h1>
@@ -394,7 +386,6 @@
       </div>
     </div>
 
-    <!-- Kết quả bên phải -->
     <aside class="results-panel">
       <div class="results-header">
         <div>
@@ -409,12 +400,10 @@
     </aside>
   </div>
 
-  <!-- Modal zoom ảnh -->
   <div class="modal-overlay" id="modalOverlay">
     <img id="modalImg" src="" alt="Preview" />
   </div>
 
-  <!-- Toast thông báo -->
   <div class="toast" id="toast"></div>
 
   <script>
@@ -427,7 +416,8 @@
     const modalOverlay = document.getElementById('modalOverlay');
     const modalImg = document.getElementById('modalImg');
     const toast = document.getElementById('toast');
-    const IMGBB_KEY = '491b3ef8be2a261efff29b2af785c845';
+
+    const FREEIMAGE_KEY = '6d207e02198a847aa98d0a2a901485a5';
 
     let selectedFiles = [];
 
@@ -516,7 +506,6 @@
       }
     });
 
-    // Paste clipboard image
     document.addEventListener('paste', (e) => {
       const items = e.clipboardData.items;
       const files = [];
@@ -535,25 +524,26 @@
       }
     });
 
-    // Upload 1 ảnh lên ImgBB
-    async function uploadToImgBB(file) {
+    async function uploadToFreeImage(file) {
       const formData = new FormData();
-      formData.append('key', IMGBB_KEY);
-      formData.append('image', file);
+      formData.append('key', FREEIMAGE_KEY);
+      formData.append('action', 'upload');
+      formData.append('format', 'json');
+      formData.append('source', file);
 
-      const res = await fetch('https://api.imgbb.com/1/upload', {
+      const res = await fetch('https://freeimage.host/api/1/upload/', {
         method: 'POST',
         body: formData
       });
 
       const data = await res.json();
-      if (!data.success) {
-        throw new Error('ImgBB upload failed');
+      if (data.status_code !== 200 || !data.image || !data.image.url) {
+        console.error('Freeimage.host error:', data);
+        throw new Error('Freeimage upload failed');
       }
-      return data.data.url;
+      return data.image.url;
     }
 
-    // Download ảnh với feedback
     async function downloadImage(url, filename = 'seedream-output.png', btnEl) {
       try {
         btnEl.disabled = true;
@@ -578,7 +568,6 @@
       }
     }
 
-    // Zoom modal
     function openZoomModal(src) {
       modalImg.src = src;
       modalOverlay.classList.add('show');
@@ -614,7 +603,7 @@
       try {
         const imageUrls = [];
         for (let i = 0; i < selectedFiles.length; i++) {
-          const url = await uploadToImgBB(selectedFiles[i]);
+          const url = await uploadToFreeImage(selectedFiles[i]);
           imageUrls.push(url);
         }
 
@@ -630,9 +619,7 @@
 
         const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
