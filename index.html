@@ -233,6 +233,12 @@
       width: 100%;
       border-radius: 8px;
       display: block;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .result-card img:hover {
+      transform: scale(1.03);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
     }
     .download-btn {
       margin-top: 2px;
@@ -247,16 +253,67 @@
       align-items: center;
       gap: 4px;
       justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
     }
     .download-btn:hover {
       border-color: #3b82f6;
       color: #bfdbfe;
+    }
+    .download-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
     .results-empty {
       font-size: 12px;
       color: #6b7280;
       text-align: center;
       padding: 16px 4px;
+    }
+
+    /* Modal zoom preview */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-overlay img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 12px;
+      box-shadow: 0 12px 60px rgba(0,0,0,0.6);
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      color: #e5e7eb;
+      padding: 12px 18px;
+      border-radius: 12px;
+      font-size: 13px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+      z-index: 10000;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.3s, transform 0.3s;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
     }
   </style>
 </head>
@@ -267,7 +324,7 @@
       <div class="badge"><span></span> Realtime Seedream V4 Edit</div>
       <h1>Seedream V4 Edit – KIE AI</h1>
       <p class="desc">
-        Upload tối đa 10 ảnh tham chiếu (PNG/JPG, giữ đúng thứ tự), nhập prompt và chọn kích thước, độ phân giải. Kết quả sẽ hiển thị ở khung bên phải.
+        Upload tối đa 10 ảnh tham chiếu (PNG/JPG, giữ đúng thứ tự), nhập prompt và chọn kích thước, độ phân giải. Kết quả sẽ hiển thị ở khung bên phải. <strong>Bạn cũng có thể paste (Ctrl+V) ảnh từ clipboard.</strong>
       </p>
 
       <form id="aiForm">
@@ -352,6 +409,14 @@
     </aside>
   </div>
 
+  <!-- Modal zoom ảnh -->
+  <div class="modal-overlay" id="modalOverlay">
+    <img id="modalImg" src="" alt="Preview" />
+  </div>
+
+  <!-- Toast thông báo -->
+  <div class="toast" id="toast"></div>
+
   <script>
     const imagesInput = document.getElementById('images');
     const fileDrop = document.getElementById('fileDrop');
@@ -359,10 +424,20 @@
     const imageError = document.getElementById('imageError');
     const resultImages = document.getElementById('resultImages');
     const resultsEmpty = document.getElementById('resultsEmpty');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalImg = document.getElementById('modalImg');
+    const toast = document.getElementById('toast');
     const IMGBB_KEY = '491b3ef8be2a261efff29b2af785c845';
 
-    // Mảng giữ file được chọn (giữ khi mở lại dialog)
     let selectedFiles = [];
+
+    function showToast(msg, duration = 3000) {
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, duration);
+    }
 
     function renderPreview() {
       preview.innerHTML = '';
@@ -399,7 +474,6 @@
         imageError.textContent = 'Tối đa chỉ 10 ảnh tham chiếu.';
         return;
       }
-      // Chỉ nhận PNG/JPG/JPEG
       const valid = incoming.filter(f => /image\/(png|jpeg|jpg)/i.test(f.type));
       if (valid.length < incoming.length) {
         imageError.textContent = 'Một số ảnh không phải PNG/JPG nên đã bị bỏ qua.';
@@ -408,7 +482,6 @@
       renderPreview();
     }
 
-    // Click vùng upload mở file dialog, KHÔNG reset preview
     fileDrop.addEventListener('click', () => {
       imagesInput.click();
     });
@@ -418,11 +491,9 @@
       if (e.target.files && e.target.files.length > 0) {
         addFiles(e.target.files);
       }
-      // clear value để lần sau chọn lại cùng file vẫn trigger change
       imagesInput.value = '';
     });
 
-    // Hỗ trợ kéo thả
     ['dragenter', 'dragover'].forEach(evt => {
       fileDrop.addEventListener(evt, (e) => {
         e.preventDefault();
@@ -445,7 +516,26 @@
       }
     });
 
-    // Upload 1 ảnh lên ImgBB, trả URL
+    // Paste clipboard image
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData.items;
+      const files = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          const blob = items[i].getAsFile();
+          if (blob) {
+            files.push(blob);
+          }
+        }
+      }
+      if (files.length > 0) {
+        imageError.textContent = '';
+        addFiles(files);
+        showToast('✅ Đã paste ' + files.length + ' ảnh từ clipboard.');
+      }
+    });
+
+    // Upload 1 ảnh lên ImgBB
     async function uploadToImgBB(file) {
       const formData = new FormData();
       formData.append('key', IMGBB_KEY);
@@ -463,18 +553,41 @@
       return data.data.url;
     }
 
-    // Download ảnh theo URL
-    async function downloadImage(url, filename = 'seedream-output.png') {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(link.href);
+    // Download ảnh với feedback
+    async function downloadImage(url, filename = 'seedream-output.png', btnEl) {
+      try {
+        btnEl.disabled = true;
+        btnEl.textContent = '⏳ Đang tải...';
+
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(link.href);
+
+        showToast('✅ Đã tải ảnh: ' + filename);
+      } catch (err) {
+        showToast('❌ Lỗi tải ảnh: ' + err.message);
+      } finally {
+        btnEl.disabled = false;
+        btnEl.textContent = '⬇ Tải ảnh';
+      }
     }
+
+    // Zoom modal
+    function openZoomModal(src) {
+      modalImg.src = src;
+      modalOverlay.classList.add('show');
+    }
+    function closeZoomModal() {
+      modalOverlay.classList.remove('show');
+      modalImg.src = '';
+    }
+    modalOverlay.addEventListener('click', closeZoomModal);
 
     document.getElementById('aiForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -499,14 +612,12 @@
       resultsEmpty.style.display = 'none';
 
       try {
-        // 1) Upload từng ảnh lên ImgBB, giữ đúng thứ tự
         const imageUrls = [];
         for (let i = 0; i < selectedFiles.length; i++) {
           const url = await uploadToImgBB(selectedFiles[i]);
           imageUrls.push(url);
         }
 
-        // 2) Gửi JSON sang n8n webhook
         const payload = {
           mode: document.getElementById('mode').value,
           prompt,
@@ -539,18 +650,22 @@
 
             const img = document.createElement('img');
             img.src = url;
+            img.onclick = () => openZoomModal(url);
 
             const btn = document.createElement('button');
             btn.className = 'download-btn';
             btn.type = 'button';
-            btn.textContent = '⬇ Tải ảnh ' + (idx + 1);
-            btn.onclick = () => downloadImage(url, `seedream-${idx + 1}.png`);
+            btn.textContent = '⬇ Tải ảnh';
+            btn.onclick = function() {
+              downloadImage(url, `seedream-${idx + 1}.png`, btn);
+            };
 
             card.appendChild(img);
             card.appendChild(btn);
             resultImages.appendChild(card);
           });
           resultsEmpty.style.display = 'none';
+          showToast('✅ Hoàn thành! Nhấp vào ảnh để phóng to.');
         } else {
           resultsEmpty.style.display = 'block';
           resultsEmpty.textContent = 'Không nhận được URL ảnh từ server.';
