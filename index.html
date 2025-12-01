@@ -1,0 +1,243 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.7">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="vi"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta charset="UTF-8" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;meta name="viewport" content="width=device-width, initial-scale=1.0" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;title&gt;Seedream V4 Edit – KIE AI&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>* { box-sizing: border-box; margin: 0; padding: 0; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>body { font-family: Arial, sans-serif; background: #f5f5f5; padding: 20px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.container { max-width: 900px; margin: 0 auto; background: #fff; padding: 24px; border-radius: 10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>h1 { margin-bottom: 12px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.desc { margin-bottom: 20px; color: #555; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.form-group { margin-bottom: 16px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>label { font-weight: bold; display: block; margin-bottom: 6px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 14px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>textarea { min-height: 100px; resize: vertical; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.file-upload { border: 2px dashed #ccc; padding: 20px; text-align: center; cursor: pointer; border-radius: 6px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.file-upload:hover { border-color: #007bff; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.preview { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.preview img { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; border: 1px solid #ddd; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>button { background: #007bff; color: #fff; padding: 10px 20px; border-radius: 6px; border: none; cursor: pointer; font-size: 15px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>button:disabled { background: #aaa; cursor: not-allowed; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.row { display: flex; gap: 10px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.row .col { flex: 1; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.loading { display: none; margin-top: 18px; text-align: center; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.spinner { width: 30px; height: 30px; border-radius: 50%; border: 3px solid #eee; border-top-color: #007bff; animation: spin 1s linear infinite; margin: 0 auto 8px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>@keyframes spin { to { transform: rotate(360deg); } }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.result { display: none; margin-top: 24px; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.result img { max-width: 100%; border-radius: 6px; margin-bottom: 10px; border: 1px solid #ddd; }</p>
+<p class="p1"><span class="Apple-converted-space">    </span>.error { color: red; margin-top: 8px; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div class="container"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;h1&gt;Seedream V4 Edit – KIE AI&lt;/h1&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;p class="desc"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>Upload tối đa 10 ảnh tham chiếu (giữ đúng thứ tự), nhập prompt, chọn tỷ lệ, độ phân giải và số ảnh muốn tạo.</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/p&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;form id="aiForm"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;!-- Mode --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Chế độ&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;select id="mode" name="mode"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;option value="create"&gt;Create (Tạo mới từ nhiều ảnh tham chiếu)&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;option value="edit"&gt;Edit (Chỉnh sửa theo prompt)&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;!-- Prompt --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Prompt (bắt buộc)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;textarea id="prompt" name="prompt" required placeholder="Mô tả chi tiết ảnh cần tạo/chỉnh sửa..."&gt;&lt;/textarea&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;!-- Images --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Ảnh tham chiếu (tối đa 10, giữ đúng thứ tự)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="file-upload" onclick="document.getElementById('images').click()"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>📁 Click để chọn ảnh hoặc kéo thả vào đây</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;input type="file" id="images" name="images" multiple accept="image/*" style="display:none" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div id="preview" class="preview"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div id="imageError" class="error"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;!-- Size + Resolution + Max images --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="row"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="col"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;label&gt;Tỷ lệ (image_size)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="imageSize" name="imageSize"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="square"&gt;Square&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="square_hd" selected&gt;Square HD&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="portrait_4_3"&gt;Portrait 3:4&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="portrait_3_2"&gt;Portrait 2:3&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="portrait_16_9"&gt;Portrait 9:16&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="landscape_4_3"&gt;Landscape 4:3&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="landscape_3_2"&gt;Landscape 3:2&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="landscape_16_9"&gt;Landscape 16:9&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="landscape_21_9"&gt;Landscape 21:9&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="col"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;label&gt;Độ phân giải (image_resolution)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="imageResolution" name="imageResolution"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="1K" selected&gt;1K&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="2K"&gt;2K&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="4K"&gt;4K&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;div class="col"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;label&gt;Số ảnh tạo (max_images)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;select id="maxImages" name="maxImages"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="1"&gt;1 ảnh&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="2"&gt;2 ảnh&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="3"&gt;3 ảnh&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="4" selected&gt;4 ảnh&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="5"&gt;5 ảnh&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">              </span>&lt;option value="6"&gt;6 ảnh (tối đa)&lt;/option&gt;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>&lt;/select&gt;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;!-- Seed --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="form-group"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;label&gt;Seed (tùy chọn, để trống nếu không cần)&lt;/label&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;input type="number" id="seed" name="seed" placeholder="VD: 42" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;button type="submit" id="submitBtn"&gt;🚀 Gửi yêu cầu&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/form&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="loading" class="loading"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div class="spinner"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;p&gt;Đang xử lý với KIE AI, vui lòng đợi...&lt;/p&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="result" class="result"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;h3&gt;Kết quả&lt;/h3&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div id="resultImages"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const imagesInput = document.getElementById('images');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const preview = document.getElementById('preview');</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const imageError = document.getElementById('imageError');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>// Preview &amp; validate</p>
+<p class="p1"><span class="Apple-converted-space">    </span>imagesInput.addEventListener('change', () =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>preview.innerHTML = '';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>imageError.textContent = '';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const files = Array.from(imagesInput.files);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (files.length &gt; 10) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>imageError.textContent = 'Tối đa chỉ 10 ảnh.';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>imagesInput.value = '';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>files.forEach(file =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const reader = new FileReader();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>reader.onload = e =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const img = document.createElement('img');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>img.src = e.target.result;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>preview.appendChild(img);</p>
+<p class="p1"><span class="Apple-converted-space">        </span>};</p>
+<p class="p1"><span class="Apple-converted-space">        </span>reader.readAsDataURL(file);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p1"><span class="Apple-converted-space">    </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>document.getElementById('aiForm').addEventListener('submit', async (e) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">      </span>e.preventDefault();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>imageError.textContent = '';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const prompt = document.getElementById('prompt').value.trim();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const files = Array.from(imagesInput.files);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (!prompt) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>alert('Prompt là bắt buộc.');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (files.length === 0) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>imageError.textContent = 'Cần ít nhất 1 ảnh tham chiếu.';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>return;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const formData = new FormData();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('mode', document.getElementById('mode').value);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('prompt', prompt);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('image_size', document.getElementById('imageSize').value);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('image_resolution', document.getElementById('imageResolution').value);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('max_images', document.getElementById('maxImages').value);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const seedVal = document.getElementById('seed').value;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>if (seedVal !== '') formData.append('seed', seedVal);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>formData.append('imageCount', files.length.toString());</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// append từng ảnh theo thứ tự image0, image1,...</p>
+<p class="p1"><span class="Apple-converted-space">      </span>files.forEach((file, idx) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>formData.append('image' + idx, file);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>const submitBtn = document.getElementById('submitBtn');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const loading = document.getElementById('loading');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const result = document.getElementById('result');</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const resultImages = document.getElementById('resultImages');</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>submitBtn.disabled = true;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>loading.style.display = 'block';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>result.style.display = 'none';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>resultImages.innerHTML = '';</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const res = await fetch('https://rasp.nthang91.io.vn/webhook/60e246a1-1107-49ed-a729-19fc122fe0de', {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>method: 'POST',</p>
+<p class="p1"><span class="Apple-converted-space">          </span>body: formData</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const data = await res.json();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>if (data.error) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>resultImages.innerHTML = '&lt;p class="error"&gt;' + data.error + '&lt;/p&gt;';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else if (data.images &amp;&amp; data.images.length &gt; 0) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>data.images.forEach(url =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const img = document.createElement('img');</p>
+<p class="p1"><span class="Apple-converted-space">            </span>img.src = url;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>resultImages.appendChild(img);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>});</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>resultImages.innerHTML = '&lt;p class="error"&gt;Không nhận được URL ảnh từ server.&lt;/p&gt;';</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>result.style.display = 'block';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>} catch (err) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>alert('Lỗi: ' + err.message);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>} finally {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>submitBtn.disabled = false;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>loading.style.display = 'none';</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>});</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/script&gt;</p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
