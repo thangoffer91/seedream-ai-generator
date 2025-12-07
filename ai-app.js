@@ -3,7 +3,7 @@ console.log("🚀 AI App initializing...");
 // ===== CONFIGURATION =====
 const CONFIG = {
   WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
-  MAX_FILE_SIZE: 10 * 1024 * 1024,
+  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB per file
   MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
   REQUEST_TIMEOUT: 60000,
   MAX_HISTORY_ITEMS: 50,
@@ -218,6 +218,10 @@ function aiApp() {
     errorMessage: "",
     successMessage: "",
     
+    // Timer states
+    timerInterval: null,
+    elapsedTime: 0,
+    
     get hasImages() {
       return this.imageSlots.some(s => s.file);
     },
@@ -226,12 +230,35 @@ function aiApp() {
       return !this.loading && this.prompt.trim().length > 0;
     },
     
+    // Format elapsed time
+    get formattedTime() {
+      const ms = this.elapsedTime;
+      const seconds = Math.floor(ms / 1000);
+      const milliseconds = Math.floor((ms % 1000) / 10);
+      return `${seconds}.${milliseconds.toString().padStart(2, '0')}s`;
+    },
+    
     init() {
       console.log("✅ App initialized");
       this.addImageSlot();
       this.loadResults();
       this.$store.imageHistory.init();
       security.trackEvent('app_initialized', { timestamp: Date.now() });
+    },
+    
+    // Timer methods
+    startTimer() {
+      this.elapsedTime = 0;
+      this.timerInterval = setInterval(() => {
+        this.elapsedTime += 10;
+      }, 10);
+    },
+    
+    stopTimer() {
+      if (this.timerInterval) {
+        clearInterval(this.timerInterval);
+        this.timerInterval = null;
+      }
     },
     
     addImageSlot() {
@@ -271,7 +298,7 @@ function aiApp() {
       }
       
       if (file.size > CONFIG.MAX_FILE_SIZE) {
-        this.showError(`❌ File quá lớn (max ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`);
+        this.showError(`❌ File quá lớn (max 5MB)`);
         event.target.value = '';
         return;
       }
@@ -345,6 +372,9 @@ function aiApp() {
       this.errorMessage = "";
       this.successMessage = "";
       
+      // Start timer
+      this.startTimer();
+      
       const startTime = Date.now();
       
       try {
@@ -401,7 +431,7 @@ function aiApp() {
           success: true
         });
         
-        this.showSuccess(`✅ Tạo ảnh thành công trong ${(duration / 1000).toFixed(1)}s`);
+        this.showSuccess(`✅ Tạo ảnh thành công trong ${(duration / 1000).toFixed(2)}s`);
         
         this.prompt = "";
         this.imageSlots = [];
@@ -429,6 +459,7 @@ function aiApp() {
         }
       } finally {
         this.loading = false;
+        this.stopTimer();
       }
     },
     
@@ -457,6 +488,7 @@ function aiApp() {
   };
 }
 
+// ===== HISTORY COMPONENT =====
 function aiAppHistory() {
   return {
     get history() {
@@ -479,6 +511,7 @@ function aiAppHistory() {
   };
 }
 
+// ===== MODAL COMPONENT =====
 function imageModal() {
   return {
     show: false,
@@ -509,6 +542,7 @@ function imageModal() {
   };
 }
 
+// ===== DOM RENDERING =====
 window.addEventListener("DOMContentLoaded", () => {
   console.log("⚙️ Mounting app...");
   
@@ -585,7 +619,10 @@ window.addEventListener("DOMContentLoaded", () => {
         type="button"
       >
         <template x-if="loading">
-          <span><span class="loading-spinner"></span>Đang xử lý...</span>
+          <span>
+            <span class="loading-spinner"></span>
+            Đang xử lý... <span class="timer-badge" x-text="formattedTime"></span>
+          </span>
         </template>
         <template x-if="!loading">
           <span>🚀 Tạo ảnh</span>
