@@ -3,7 +3,7 @@
   display: none !important; 
 }
 
-/* ===== MOBILE FIRST BASE STYLES ===== */
+/* ===== BASE STYLES ===== */
 * {
   box-sizing: border-box;
 }
@@ -18,7 +18,71 @@ body.dark {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ===== MOBILE: Stack layout ===== */
+/* ===== PWA INSTALL BANNER ===== */
+.install-banner {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10000;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.5s ease;
+  max-width: 90%;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.install-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.install-content > div {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-install, .btn-dismiss {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.btn-install {
+  background: white;
+  color: #667eea;
+}
+
+.btn-install:active {
+  transform: scale(0.95);
+}
+
+.btn-dismiss {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+/* ===== LAYOUT ===== */
 .app-layout {
   display: flex;
   flex-direction: column;
@@ -27,7 +91,6 @@ body.dark {
   margin: 0 auto;
 }
 
-/* ===== MAIN CONTAINER ===== */
 .container {
   width: 100%;
   padding: 15px;
@@ -36,7 +99,6 @@ body.dark {
   box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
 }
 
-/* ===== HISTORY PANEL ===== */
 .history-panel {
   width: 100%;
   padding: 15px;
@@ -45,7 +107,7 @@ body.dark {
   box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.05);
   max-height: 400px;
   overflow-y: auto;
-  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
 }
 
 .history-header {
@@ -55,7 +117,6 @@ body.dark {
   margin-bottom: 10px;
 }
 
-/* Custom scrollbar */
 .history-panel::-webkit-scrollbar {
   width: 6px;
 }
@@ -81,7 +142,7 @@ h3 {
   font-size: 1.1rem;
 }
 
-/* ===== ERROR MESSAGE ===== */
+/* ===== MESSAGES ===== */
 .error-message {
   background: #da3633;
   color: white;
@@ -91,6 +152,16 @@ h3 {
   font-size: 14px;
   animation: slideIn 0.3s ease;
   word-break: break-word;
+}
+
+.success-message {
+  background: #238636;
+  color: white;
+  padding: 10px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  animation: slideIn 0.3s ease;
 }
 
 @keyframes slideIn {
@@ -126,18 +197,18 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
 }
 
-/* ===== BUTTONS - Touch friendly [web:17] ===== */
+/* ===== BUTTONS ===== */
 button {
   cursor: pointer;
   border: none;
   border-radius: 8px;
-  padding: 12px 16px; /* Larger for touch */
+  padding: 12px 16px;
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s;
-  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
-  touch-action: manipulation; /* Prevent zoom on double-tap */
-  min-height: 44px; /* iOS touch target minimum */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-height: 44px;
 }
 
 button:active:not(:disabled) {
@@ -213,6 +284,7 @@ button:active:not(:disabled) {
   align-items: center;
   overflow: hidden;
   background: #161b22;
+  position: relative;
 }
 
 .image-preview img {
@@ -226,6 +298,18 @@ button:active:not(:disabled) {
   color: #6e7681;
   text-align: center;
   padding: 10px;
+}
+
+.image-size-badge {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(0, 0, 0, 0.7);
+  color: #58a6ff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .placeholder-text, .loading-text {
@@ -319,7 +403,7 @@ button:active:not(:disabled) {
   border-radius: 50%;
   cursor: pointer;
   transition: all 0.2s;
-  min-height: 40px; /* Touch target */
+  min-height: 40px;
 }
 
 .close-btn:active {
@@ -382,7 +466,7 @@ button:active:not(:disabled) {
   font-size: 14px;
 }
 
-/* ===== TABLET BREAKPOINT (min-width: 768px) ===== */
+/* ===== RESPONSIVE - TABLET ===== */
 @media (min-width: 768px) {
   body.dark {
     padding: 20px;
@@ -459,9 +543,13 @@ button:active:not(:disabled) {
     width: auto;
     min-width: 200px;
   }
+
+  .install-banner {
+    max-width: 600px;
+  }
 }
 
-/* ===== DESKTOP BREAKPOINT (min-width: 1024px) ===== */
+/* ===== RESPONSIVE - DESKTOP ===== */
 @media (min-width: 1024px) {
   .app-layout {
     flex-direction: row;
@@ -485,18 +573,7 @@ button:active:not(:disabled) {
   }
 }
 
-/* ===== LARGE DESKTOP (min-width: 1440px) ===== */
-@media (min-width: 1440px) {
-  .history-panel {
-    width: 380px;
-  }
-
-  h1 {
-    font-size: 2.5rem;
-  }
-}
-
-/* ===== LANDSCAPE MOBILE FIX ===== */
+/* ===== LANDSCAPE MOBILE ===== */
 @media (max-height: 600px) and (orientation: landscape) {
   .modal-image {
     max-height: 60vh;
@@ -504,21 +581,6 @@ button:active:not(:disabled) {
 
   .history-panel {
     max-height: 300px;
-  }
-}
-
-/* ===== HIGH DPI DISPLAYS ===== */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .result-thumb,
-  .modal-image {
-    image-rendering: -webkit-optimize-contrast;
-  }
-}
-
-/* ===== DARK MODE ENHANCEMENT ===== */
-@media (prefers-color-scheme: dark) {
-  body.dark {
-    background-color: #0a0e14;
   }
 }
 
