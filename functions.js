@@ -1,142 +1,155 @@
+// WEBHOOK URL
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
+
 let imageSlots = [];
 let slotCounter = 0;
-let historyImages = [];
 
+// Tạo slot ảnh ban đầu
 function addImageSlot() {
-    const slotId = slotCounter++;
-    const slot = {
-        id: slotId,
-        file: null,
-        preview: null,
-    };
-    imageSlots.push(slot);
-    renderImageSlots();
+  const slotId = slotCounter++;
+  const isBase = imageSlots.length === 0;
+
+  const slot = {
+    id: slotId,
+    file: null,
+    preview: null,
+    uploaded: false
+  };
+
+  imageSlots.push(slot);
+  renderImageSlots();
 }
 
+// Hiển thị các image slot
 function renderImageSlots() {
-    const container = document.getElementById('imagesContainer');
-    container.innerHTML = '';
-    imageSlots.forEach((slot) => {
-        const div = document.createElement('div');
-        div.className = 'image-item';
-        div.innerHTML = `
-            <div class="image-preview" id="preview-${slot.id}">
-                ${slot.preview ? `<img src="${slot.preview}">` : 'Chưa chọn ảnh'}
-            </div>
-            <input type="file" id="file-${slot.id}" accept="image/*" style="display:none"
-                   onchange="handleFileSelect(${slot.id}, event)">
-            <button class="btn-upload" onclick="document.getElementById('file-${slot.id}').click()">📁 Chọn ảnh</button>
-            <button class="btn-delete" onclick="deleteImageSlot(${slot.id})">🗑️ Xóa</button>
-        `;
-        container.appendChild(div);
-    });
+  const container = document.getElementById('imagesContainer');
+  container.innerHTML = '';
+
+  imageSlots.forEach((slot, index) => {
+    const isBase = index === 0;
+    const div = document.createElement('div');
+    div.className = `image-item ${isBase ? 'base-image' : ''}`;
+    div.innerHTML = `
+      <span class="image-label">${isBase ? '🎯 Ảnh gốc (Base Image)' : `📷 Ảnh tham khảo ${index}`}</span>
+      <div class="image-preview ${slot.preview ? '' : 'empty'}" id="preview-${slot.id}">
+        ${slot.preview ? `<img src="${slot.preview}">` : 'Chưa chọn ảnh'}
+      </div>
+      <input type="file" id="file-${slot.id}" accept="image/*" onchange="handleFileSelect(${slot.id}, event)">
+      <div class="image-actions">
+        <button class="btn-upload" onclick="document.getElementById('file-${slot.id}').click()">
+          ${slot.file ? '🔄 Đổi ảnh' : '📁 Chọn ảnh'}
+        </button>
+        <button class="btn-delete" onclick="deleteImageSlot(${slot.id})"
+          ${isBase && imageSlots.length === 1 ? 'disabled' : ''}>
+          🗑️ Xóa
+        </button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
 }
 
+// Xử lý khi chọn file ảnh
 function handleFileSelect(slotId, event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const slot = imageSlots.find(s => s.id === slotId);
-    slot.file = file;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        slot.preview = e.target.result;
-        renderImageSlots();
-    };
-    reader.readAsDataURL(file);
-}
+  const file = event.target.files[0];
+  if (!file) return;
 
-function deleteImageSlot(slotId) {
-    imageSlots = imageSlots.filter(s => s.id !== slotId);
+  const slot = imageSlots.find(s => s.id === slotId);
+  if (!slot) return;
+
+  slot.file = file;
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    slot.preview = e.target.result;
     renderImageSlots();
+  };
+  reader.readAsDataURL(file);
 }
 
+// Xóa slot
+function deleteImageSlot(slotId) {
+  imageSlots = imageSlots.filter(s => s.id !== slotId);
+  renderImageSlots();
+}
+
+// Chuyển file sang base64
 function fileToBase64(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 }
 
-function showError(msg) {
-    const el = document.getElementById('errorMessage');
-    el.textContent = msg;
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 5000);
+// Hiển thị lỗi
+function showError(message) {
+  const errorDiv = document.getElementById('errorMessage');
+  errorDiv.textContent = message;
+  errorDiv.classList.add('show');
+  setTimeout(() => errorDiv.classList.remove('show'), 5000);
 }
 
+// Gửi yêu cầu tạo ảnh
 async function generateImage() {
-    const prompt = document.getElementById('prompt').value.trim();
-    if (!prompt) return showError('Vui lòng nhập prompt!');
-    const files = imageSlots.filter(s => s.file);
-    if (files.length === 0) return showError('Vui lòng upload ít nhất 1 ảnh!');
+  const prompt = document.getElementById('prompt').value.trim();
 
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('generateBtn').disabled = true;
+  if (!prompt) {
+    showError('Vui lòng nhập prompt!');
+    return;
+  }
 
-    try {
-        const images = await Promise.all(files.map(async (s) => ({
-            base64: await fileToBase64(s.file),
-            filename: s.file.name,
-            mimetype: s.file.type
-        })));
+  const uploadedImages = imageSlots.filter(s => s.file);
+  if (uploadedImages.length === 0) {
+    showError('Vui lòng upload ít nhất 1 ảnh!');
+    return;
+  }
 
-        const res = await fetch(WEBHOOK_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt, images })
-        });
+  // Bắt đầu loading
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('generateBtn').disabled = true;
+  document.getElementById('resultSection').classList.remove('show');
 
-        if (!res.ok) throw new Error(await res.text());
+  try {
+    const images = await Promise.all(
+      uploadedImages.map(async (slot) => ({
+        base64: await fileToBase64(slot.file),
+        filename: slot.file.name,
+        mimetype: slot.file.type
+      }))
+    );
 
-        const data = await res.json();
-        const imageUrl = data.fifeUrl || data.imageUrl || data.media?.[0]?.image?.generatedImage?.fifeUrl;
+    const response = await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, images })
+    });
 
-        if (imageUrl) {
-            addResultImage(imageUrl);
-            addHistoryImage(imageUrl);
-        } else {
-            showError('Không nhận được URL ảnh từ server');
-        }
-
-    } catch (err) {
-        showError(err.message);
-    } finally {
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('generateBtn').disabled = false;
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Webhook error: ${response.status} - ${errorText}`);
     }
+
+    const result = await response.json();
+    const imageUrl = result.imageUrl || result.fifeUrl || result.url;
+
+    if (imageUrl) {
+      document.getElementById('resultImage').src = imageUrl;
+      document.getElementById('resultUrl').textContent = imageUrl;
+      document.getElementById('resultSection').classList.add('show');
+    } else {
+      throw new Error('Không nhận được URL ảnh từ server');
+    }
+
+  } catch (error) {
+    console.error(error);
+    showError('Có lỗi xảy ra: ' + error.message);
+  } finally {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('generateBtn').disabled = false;
+  }
 }
 
-function addResultImage(url) {
-    const gallery = document.getElementById('resultsGallery');
-    const img = document.createElement('img');
-    img.src = url;
-    img.className = 'result-thumb';
-    img.alt = 'Generated';
-    img.onclick = () => showModal(url);
-    gallery.appendChild(img);
-}
-
-function addHistoryImage(url) {
-    historyImages.push(url);
-    const container = document.getElementById('historyList');
-    const item = document.createElement('div');
-    item.innerHTML = `<img src="${url}" width="60" style="border-radius:5px;margin-right:10px;">
-                      <a href="${url}" target="_blank" download>Tải ảnh về</a>`;
-    container.appendChild(item);
-}
-
-function showModal(url) {
-    const modal = document.getElementById('imageModal');
-    document.getElementById('modalImage').src = url;
-    document.getElementById('downloadBtn').href = url;
-    modal.style.display = 'block';
-}
-
-function closeModal() {
-    document.getElementById('imageModal').style.display = 'none';
-}
-
+// Khởi tạo
 addImageSlot();
