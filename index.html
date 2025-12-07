@@ -6,13 +6,15 @@
   <title>🎨 AI Image Generator</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- AlpineJS phải load trước app -->
+  <!-- Thứ tự rất quan trọng -->
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="ai-app.js"></script>
 </head>
 
-<body>
-  <div class="container" x-data="aiApp()">
+<body x-data="aiApp()" x-init="init()">
+
+  <!-- KHU VỰC CHÍNH -->
+  <div class="container">
     <h1>🎨 AI Image Generator</h1>
 
     <!-- PROMPT -->
@@ -64,7 +66,7 @@
     <!-- NÚT GỬI -->
     <div class="submit-section">
       <button class="btn-generate" :disabled="loading" @click="generateImage()">
-        <template x-if="!loading">Tạo Ảnh</template>
+        <template x-if="!loading">🚀 Tạo Ảnh</template>
         <template x-if="loading">⏳ Đang xử lý...</template>
       </button>
     </div>
@@ -88,16 +90,19 @@
     <h3>Lịch sử ảnh</h3>
     <div id="historyList">
       <template x-for="(url, index) in history" :key="index">
-        <img :src="url" class="result-thumb" @click="openModal(url)">
+        <img :src="url" class="result-thumb" @click="$root.openModal(url)">
       </template>
     </div>
   </div>
 
-  <!-- POPUP XEM ẢNH -->
-  <div class="modal" x-show="modalImage" @click.self="closeModal()">
-    <span class="close" @click="closeModal()">&times;</span>
-    <img class="modal-content" :src="modalImage" />
-    <a class="download-btn" :href="modalImage" download target="_blank">Tải ảnh về</a>
-  </div>
+  <!-- POPUP XEM ẢNH (nằm trong phạm vi x-data chính) -->
+  <template x-if="modalImage">
+    <div class="modal" @click.self="closeModal()">
+      <span class="close" @click="closeModal()">&times;</span>
+      <img class="modal-content" :src="modalImage" />
+      <a class="download-btn" :href="modalImage" download target="_blank">Tải ảnh về</a>
+    </div>
+  </template>
+
 </body>
 </html>
