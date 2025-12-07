@@ -1,56 +1,82 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Generator</title>
-    <link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Image Generator</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Thêm Alpine.js -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="ai-app.js" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>🎨 AI Image Generator</h1>
+  <div class="container" x-data="aiApp()">
+    <h1>🎨 AI Image Generator</h1>
 
-        <div class="prompt-section">
-            <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
-            <textarea id="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
-        </div>
-
-        <div class="upload-section">
-            <label>Upload Ảnh</label>
-            <button class="add-image-btn" onclick="addImageSlot()">➕ Thêm ảnh</button>
-            <div class="images-container" id="imagesContainer"></div>
-        </div>
-
-        <div class="submit-section">
-            <button class="btn-generate" id="generateBtn" onclick="generateImage()">Tạo Ảnh</button>
-        </div>
-
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Đang xử lý...</p>
-        </div>
-
-        <div class="error-message" id="errorMessage"></div>
-
-        <div class="results-section" id="resultsSection">
-            <h3>🖼️ Kết quả</h3>
-            <div id="resultsGallery"></div>
-        </div>
+    <div class="prompt-section">
+      <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
+      <textarea x-model="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
     </div>
 
-    <!-- History panel -->
-    <div class="history-panel">
-        <h3>Lịch sử ảnh</h3>
-        <div id="historyList"></div>
+    <div class="upload-section">
+      <label>Upload Ảnh</label>
+      <button class="add-image-btn" @click="addImageSlot()">➕ Thêm ảnh</button>
+      <div class="images-container">
+        <template x-for="(slot, index) in imageSlots" :key="slot.id">
+          <div class="image-item" :class="{ 'base-image': index === 0 }">
+            <span class="image-label" x-text="index === 0 ? '🎯 Ảnh gốc (Base Image)' : '📷 Ảnh tham khảo ' + index"></span>
+            <div class="image-preview" :class="{ 'empty': !slot.preview }">
+              <template x-if="slot.preview">
+                <img :src="slot.preview" />
+              </template>
+              <template x-if="!slot.preview">
+                <span>Chưa chọn ảnh</span>
+              </template>
+            </div>
+            <input type="file" accept="image/*" :id="'file-' + slot.id" @change="handleFileSelect(slot, $event)" hidden>
+            <div class="image-actions">
+              <button class="btn-upload" @click="document.getElementById('file-' + slot.id).click()">📁 Chọn ảnh</button>
+              <button class="btn-delete" @click="deleteImageSlot(slot.id)" :disabled="index === 0 && imageSlots.length === 1">🗑️ Xóa</button>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <!-- Image Preview Popup -->
-    <div id="imageModal" class="modal">
-        <span class="close" onclick="closeModal()">&times;</span>
-        <img class="modal-content" id="modalImage">
-        <a id="downloadBtn" class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
+    <div class="submit-section">
+      <button class="btn-generate" :disabled="loading" @click="generateImage()">
+        <template x-if="!loading">Tạo Ảnh</template>
+        <template x-if="loading">⏳ Đang xử lý...</template>
+      </button>
     </div>
 
-    <script src="functions.js"></script>
+    <div class="error-message" x-show="errorMessage" x-text="errorMessage"></div>
+
+    <div class="results-section" x-show="results.length > 0">
+      <h3>🖼️ Kết quả</h3>
+      <div id="resultsGallery">
+        <template x-for="(url, index) in results" :key="index">
+          <img :src="url" class="result-thumb" @click="openModal(url)">
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lịch sử -->
+  <div class="history-panel" x-data="aiAppHistory()">
+    <h3>Lịch sử ảnh</h3>
+    <div id="historyList">
+      <template x-for="(url, index) in history" :key="index">
+        <img :src="url" class="result-thumb" @click="openModal(url)">
+      </template>
+    </div>
+  </div>
+
+  <!-- Popup -->
+  <div class="modal" x-show="modalImage" @click.self="closeModal()">
+    <span class="close" @click="closeModal()">&times;</span>
+    <img class="modal-content" :src="modalImage" />
+    <a class="download-btn" :href="modalImage" download target="_blank">Tải ảnh về</a>
+  </div>
 </body>
 </html>
