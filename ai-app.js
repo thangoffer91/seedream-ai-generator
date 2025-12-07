@@ -1,5 +1,5 @@
 // ===============================
-// AI IMAGE GENERATOR APP (final fixed)
+// AI IMAGE GENERATOR APP — FINAL FIXED VERSION
 // ===============================
 
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
@@ -16,17 +16,20 @@ function aiApp() {
     errorMessage: '',
     modalImage: null,
 
+    // Khởi tạo
     init() {
       console.log('✅ Alpine App initialized');
       this.addImageSlot();
       this.loadHistory();
     },
 
+    // Thêm slot ảnh
     addImageSlot() {
       const id = Date.now() + '-' + Math.random().toString(36).substr(2, 5);
       this.imageSlots.push({ id, file: null, preview: null });
     },
 
+    // Chọn ảnh
     handleFileSelect(slot, event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -36,10 +39,12 @@ function aiApp() {
       slot.file = file;
     },
 
+    // Xóa slot
     deleteImageSlot(id) {
       this.imageSlots = this.imageSlots.filter((s) => s.id !== id);
     },
 
+    // Đọc file sang base64
     fileToBase64(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -49,11 +54,13 @@ function aiApp() {
       });
     },
 
+    // Gửi request đến webhook n8n
     async generateImage() {
       if (!this.prompt.trim()) {
         this.showError('⚠️ Vui lòng nhập prompt!');
         return;
       }
+
       const uploaded = this.imageSlots.filter((s) => s.file);
       if (uploaded.length === 0) {
         this.showError('⚠️ Vui lòng chọn ít nhất một ảnh!');
@@ -79,9 +86,9 @@ function aiApp() {
         });
 
         if (!response.ok) throw new Error(`Webhook trả về lỗi ${response.status}`);
+
         const result = await response.json();
         const url = result.imageUrl || result.url || result.fileUrl;
-
         if (!url) throw new Error('Không nhận được URL ảnh từ server.');
 
         this.results.unshift(url);
@@ -95,27 +102,39 @@ function aiApp() {
       }
     },
 
+    // Hiển thị lỗi
     showError(msg) {
       this.errorMessage = msg;
       setTimeout(() => (this.errorMessage = ''), 4000);
     },
 
     // -------------------------------
-    // POPUP ẢNH LỚN
+    // POPUP ẢNH LỚN (có nút ❌ và click ngoài để đóng)
     // -------------------------------
     openModal(url) {
       this.modalImage = url;
       let modal = document.querySelector('.modal');
+
       if (!modal) {
-        console.warn('⚠️ Modal chưa có trong DOM, tạo mới...');
+        console.warn('⚠️ Modal chưa tồn tại, tạo mới...');
         modal = document.createElement('div');
         modal.className = 'modal';
         modal.innerHTML = `
-          <span class="close" onclick="closeModal()">&times;</span>
+          <span class="close">&times;</span>
           <img class="modal-content">
           <a class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
         `;
         document.body.appendChild(modal);
+
+        // Gắn sự kiện đóng popup (nút X)
+        modal.querySelector('.close').addEventListener('click', () => {
+          window.closeModal();
+        });
+
+        // Gắn sự kiện click nền để đóng
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) window.closeModal();
+        });
       }
 
       const img = modal.querySelector('.modal-content');
@@ -134,25 +153,23 @@ function aiApp() {
     },
 
     // -------------------------------
-    // LỊCH SỬ ẢNH (dùng sessionStorage để tự xóa khi reload cứng)
+    // LỊCH SỬ ẢNH (sessionStorage: tự xóa khi reload cứng/tab đóng)
     // -------------------------------
     saveToHistory(url) {
       const item = { url, time: Date.now() };
       const history = JSON.parse(sessionStorage.getItem('ai_image_history') || '[]');
       history.unshift(item);
       sessionStorage.setItem('ai_image_history', JSON.stringify(history));
-      console.log('💾 Đã lưu ảnh vào lịch sử:', url);
+      console.log('💾 Lưu ảnh vào lịch sử:', url);
       window.dispatchEvent(new Event('ai-history-updated'));
     },
 
     loadHistory() {
-      const historyRaw = JSON.parse(sessionStorage.getItem('ai_image_history') || '[]');
+      const raw = JSON.parse(sessionStorage.getItem('ai_image_history') || '[]');
       const now = Date.now();
       const ONE_DAY = 24 * 60 * 60 * 1000;
-
-      const valid = historyRaw.filter((h) => now - h.time < ONE_DAY);
+      const valid = raw.filter((h) => now - h.time < ONE_DAY);
       sessionStorage.setItem('ai_image_history', JSON.stringify(valid));
-
       this.results = valid.map((h) => h.url);
       console.log('🕒 Lịch sử ảnh:', this.results);
     },
@@ -160,7 +177,7 @@ function aiApp() {
 }
 
 // -------------------------------
-// PANEL LỊCH SỬ (auto cập nhật)
+// PANEL LỊCH SỬ (tự cập nhật khi có ảnh mới)
 // -------------------------------
 function aiAppHistory() {
   return {
@@ -195,7 +212,7 @@ function aiAppHistory() {
 window.openModal = (url) => {
   const modal = document.querySelector('.modal');
   if (!modal) {
-    console.warn('⚠️ Modal không tồn tại, không thể mở.');
+    console.warn('⚠️ Modal không tồn tại để mở.');
     return;
   }
   const img = modal.querySelector('.modal-content');
@@ -216,4 +233,4 @@ window.closeModal = () => {
 window.aiApp = aiApp;
 window.aiAppHistory = aiAppHistory;
 
-console.log('✅ ai-app.js FINAL FIX loaded');
+console.log('✅ ai-app.js FINAL FIXED & STABLE loaded');
