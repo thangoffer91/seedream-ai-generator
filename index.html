@@ -3,73 +3,78 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>🎨 AI Image Generator — Dark Theme</title>
+  <title>🎨 AI Image Generator — Dark Midjourney</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- AlpineJS -->
+  <!-- ⚠️ Đặt AlpineJS trước, defer giúp chờ toàn bộ DOM -->
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+  <!-- ✅ Script chính, đảm bảo chạy sau khi Alpine sẵn sàng -->
   <script src="ai-app.js" defer></script>
 </head>
 
 <body class="dark">
-  <div class="container" x-data="aiApp()" x-init="init()">
-    <h1>🎨 AI Image Generator</h1>
+  <div id="mainApp" x-data="window.aiApp()" x-init="init()">
+    <div class="container">
+      <h1>🎨 AI Image Generator</h1>
 
-    <div class="prompt-section">
-      <label>Prompt (Mô tả ảnh bạn muốn tạo)</label>
-      <textarea x-model="prompt" placeholder="Ví dụ: poster đồ ăn theo phong cách Midjourney, ánh sáng studio, siêu thực..."></textarea>
-    </div>
+      <div class="prompt-section">
+        <label>Prompt (Mô tả ảnh bạn muốn tạo)</label>
+        <textarea x-model="prompt" placeholder="Ví dụ: poster đồ ăn theo phong cách Midjourney, ánh sáng studio, siêu thực..."></textarea>
+      </div>
 
-    <div class="upload-section">
-      <label>Upload Ảnh</label>
-      <button class="add-image-btn" @click="addImageSlot()">➕ Thêm ảnh</button>
-      <div class="images-container">
-        <template x-for="(slot, index) in imageSlots" :key="slot.id">
-          <div class="image-item">
-            <span class="image-label" x-text="index === 0 ? '🎯 Ảnh gốc (Base)' : '📷 Ảnh tham khảo ' + index"></span>
-            <div class="image-preview" :class="{ 'empty': !slot.preview }">
-              <template x-if="slot.preview">
-                <img :src="slot.preview" />
-              </template>
-              <template x-if="!slot.preview">
-                <span>Chưa chọn ảnh</span>
-              </template>
+      <div class="upload-section">
+        <label>Upload Ảnh</label>
+        <button class="add-image-btn" @click="addImageSlot()">➕ Thêm ảnh</button>
+
+        <div class="images-container">
+          <template x-for="(slot, index) in imageSlots" :key="slot.id">
+            <div class="image-item">
+              <span class="image-label" x-text="index === 0 ? '🎯 Ảnh gốc (Base)' : '📷 Ảnh tham khảo ' + index"></span>
+              <div class="image-preview" :class="{ 'empty': !slot.preview }">
+                <template x-if="slot.preview">
+                  <img :src="slot.preview" />
+                </template>
+                <template x-if="!slot.preview">
+                  <span>Chưa chọn ảnh</span>
+                </template>
+              </div>
+              <div class="image-actions">
+                <button class="btn-upload" @click="document.getElementById('file-' + slot.id).click()">📁 Chọn ảnh</button>
+                <button class="btn-delete" @click="deleteImageSlot(slot.id)" :disabled="index === 0 && imageSlots.length === 1">🗑️ Xóa</button>
+              </div>
+              <input type="file" accept="image/*" :id="'file-' + slot.id" @change="handleFileSelect(slot, $event)" hidden />
             </div>
-            <div class="image-actions">
-              <button class="btn-upload" @click="document.getElementById('file-' + slot.id).click()">📁 Chọn ảnh</button>
-              <button class="btn-delete" @click="deleteImageSlot(slot.id)" :disabled="index === 0 && imageSlots.length === 1">🗑️ Xóa</button>
-            </div>
-            <input type="file" accept="image/*" :id="'file-' + slot.id" @change="handleFileSelect(slot, $event)" hidden />
-          </div>
-        </template>
+          </template>
+        </div>
+      </div>
+
+      <div class="submit-section">
+        <button class="btn-generate" :disabled="loading" @click="generateImage()">
+          <span x-show="!loading">🚀 Tạo Ảnh</span>
+          <span x-show="loading" class="glow">✨ Đang xử lý...</span>
+        </button>
+      </div>
+
+      <div class="error-message" x-show="errorMessage" x-text="errorMessage"></div>
+
+      <div class="results-section" x-show="results.length > 0">
+        <h3>🖼️ Kết quả</h3>
+        <div id="resultsGallery">
+          <template x-for="(url, index) in results" :key="index">
+            <img :src="url" class="result-thumb" @click="openModal(url)">
+          </template>
+        </div>
       </div>
     </div>
 
-    <div class="submit-section">
-      <button class="btn-generate" :disabled="loading" @click="generateImage()">
-        <template x-if="!loading">🚀 Tạo Ảnh</template>
-        <template x-if="loading">⏳ Đang xử lý...</template>
-      </button>
-    </div>
-
-    <div class="error-message" x-show="errorMessage" x-text="errorMessage"></div>
-
-    <div class="results-section" x-show="results.length > 0">
-      <h3>🖼️ Kết quả</h3>
-      <div id="resultsGallery">
-        <template x-for="(url, index) in results" :key="index">
-          <img :src="url" class="result-thumb" @click="openModal(url)">
+    <div class="history-panel" x-data="window.aiAppHistory()" x-init="init()">
+      <h3>🕒 Lịch sử ảnh (tự xóa sau 24h)</h3>
+      <div id="historyList">
+        <template x-for="(item, index) in history" :key="index">
+          <img :src="item.url" class="result-thumb" @click="openModal(item.url)">
         </template>
       </div>
-    </div>
-  </div>
-
-  <div class="history-panel" x-data="aiAppHistory()" x-init="init()">
-    <h3>🕒 Lịch sử ảnh (tự xóa sau 24h)</h3>
-    <div id="historyList">
-      <template x-for="(item, index) in history" :key="index">
-        <img :src="item.url" class="result-thumb" @click="openModal(item.url)">
-      </template>
     </div>
   </div>
 </body>
