@@ -6,7 +6,7 @@
   <title>🎨 AI Image Generator</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Thứ tự rất quan trọng -->
+  <!-- Thứ tự script rất quan trọng -->
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="ai-app.js"></script>
 </head>
@@ -63,12 +63,10 @@
       </div>
     </div>
 
-    <!-- NÚT GỬI -->
+    <!-- NÚT TẠO ẢNH -->
     <div class="submit-section">
-      <button class="btn-generate" :disabled="loading" @click="generateImage()">
-        <template x-if="!loading">🚀 Tạo Ảnh</template>
-        <template x-if="loading">⏳ Đang xử lý...</template>
-      </button>
+      <button class="btn-generate" :disabled="loading" @click="generateImage()" 
+              x-text="loading ? '⏳ Đang xử lý...' : '🚀 Tạo Ảnh'"></button>
     </div>
 
     <!-- THÔNG BÁO LỖI -->
@@ -95,7 +93,7 @@
     </div>
   </div>
 
-  <!-- POPUP XEM ẢNH (nằm trong phạm vi x-data chính) -->
+  <!-- POPUP XEM ẢNH -->
   <template x-if="modalImage">
     <div class="modal" @click.self="closeModal()">
       <span class="close" @click="closeModal()">&times;</span>
