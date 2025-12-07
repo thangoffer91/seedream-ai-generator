@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Image Generator</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
@@ -17,16 +17,12 @@
 
         <div class="upload-section">
             <label>Upload Ảnh</label>
-            <button class="add-image-btn" onclick="addImageSlot()">
-                <span>➕</span> Thêm ảnh
-            </button>
+            <button class="add-image-btn" onclick="addImageSlot()">➕ Thêm ảnh</button>
             <div class="images-container" id="imagesContainer"></div>
         </div>
 
         <div class="submit-section">
-            <button class="btn-generate" id="generateBtn" onclick="generateImage()">
-                Tạo Ảnh
-            </button>
+            <button class="btn-generate" id="generateBtn" onclick="generateImage()">Tạo Ảnh</button>
         </div>
 
         <div class="loading" id="loading">
@@ -36,22 +32,23 @@
 
         <div class="error-message" id="errorMessage"></div>
 
-        <div class="results-grid" id="resultsGrid"></div>
-    </div>
-
-    <!-- History Sidebar -->
-    <div class="history-panel" id="historyPanel">
-        <h3>Lịch sử ảnh</h3>
-        <div id="historyContainer"></div>
-    </div>
-
-    <!-- Popup Modal -->
-    <div id="imageModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal()">&times;</span>
-            <img id="modalImage" src="" alt="Preview" />
-            <a id="downloadBtn" href="#" download class="btn-download" target="_blank">Tải ảnh về</a>
+        <div class="results-section" id="resultsSection">
+            <h3>🖼️ Kết quả</h3>
+            <div id="resultsGallery"></div>
         </div>
+    </div>
+
+    <!-- History panel -->
+    <div class="history-panel">
+        <h3>Lịch sử ảnh</h3>
+        <div id="historyList"></div>
+    </div>
+
+    <!-- Image Preview Popup -->
+    <div id="imageModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <img class="modal-content" id="modalImage">
+        <a id="downloadBtn" class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
     </div>
 
     <script src="functions.js"></script>
