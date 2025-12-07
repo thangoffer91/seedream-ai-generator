@@ -1,5 +1,10 @@
+console.log('🚀 Loading AI App...');
+
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
 
+// =============================
+// APP CHÍNH
+// =============================
 function aiApp() {
   return {
     prompt: '',
@@ -10,7 +15,7 @@ function aiApp() {
     modalImage: null,
 
     init() {
-      console.log('✅ App khởi tạo thành công!');
+      console.log('✅ Alpine App initialized');
       this.addImageSlot();
       this.loadHistory();
     },
@@ -135,12 +140,43 @@ function aiAppHistory() {
       this.history = data.filter((h) => now - h.time < 24 * 60 * 60 * 1000);
     },
     openModal(url) {
-      if (window.aiApp) window.aiApp().openModal(url);
+      if (window.aiAppInstance) window.aiAppInstance.openModal(url);
     },
   };
 }
 
+// =============================
+// KHI JS ĐÃ LOAD HOÀN TOÀN
+// =============================
+window.addEventListener('DOMContentLoaded', () => {
+  console.log('⚙️ DOM Ready, init Alpine manually...');
+  const root = document.getElementById('app-root');
+  root.innerHTML = `
+    <div class="container" x-data="aiApp()" x-init="init()">
+      <h1>🎨 AI Image Generator</h1>
+      <div class="prompt-section">
+        <textarea x-model="prompt" placeholder="Mô tả ảnh bạn muốn tạo..."></textarea>
+      </div>
+      <button class="btn-generate" @click="generateImage()" :disabled="loading">
+        <span x-show="!loading">🚀 Tạo ảnh</span>
+        <span x-show="loading" class="glow">✨ Đang xử lý...</span>
+      </button>
+      <div class="results-section" x-show="results.length > 0">
+        <template x-for="url in results" :key="url">
+          <img :src="url" class="result-thumb" @click="openModal(url)">
+        </template>
+      </div>
+    </div>
+    <div class="history-panel" x-data="aiAppHistory()" x-init="init()">
+      <h3>🕒 Lịch sử ảnh</h3>
+      <template x-for="item in history" :key="item.url">
+        <img :src="item.url" class="result-thumb" @click="openModal(item.url)">
+      </template>
+    </div>
+  `;
+  window.aiAppInstance = Alpine.start();
+  console.log('✅ Alpine mounted & running');
+});
+
 window.aiApp = aiApp;
 window.aiAppHistory = aiAppHistory;
-
-console.log('🌙 Dark theme app fully loaded');
