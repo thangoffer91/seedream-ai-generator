@@ -1,53 +1,59 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AI Image Generator</title>
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AI Image Generator</title>
+    <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="container">
-    <h1>🎨 AI Image Generator</h1>
+    <div class="container">
+        <h1>🎨 AI Image Generator</h1>
 
-    <div class="prompt-section">
-      <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
-      <textarea id="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
+        <div class="prompt-section">
+            <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
+            <textarea id="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
+        </div>
+
+        <div class="upload-section">
+            <label>Upload Ảnh</label>
+            <button class="add-image-btn" onclick="addImageSlot()">
+                <span>➕</span> Thêm ảnh
+            </button>
+            <div class="images-container" id="imagesContainer"></div>
+        </div>
+
+        <div class="submit-section">
+            <button class="btn-generate" id="generateBtn" onclick="generateImage()">
+                Tạo Ảnh
+            </button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Đang xử lý...</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="results-grid" id="resultsGrid"></div>
     </div>
 
-    <div class="upload-section">
-      <label>Upload Ảnh</label>
-      <button class="add-image-btn" onclick="addImageSlot()">
-        <span>➕</span> Thêm ảnh
-      </button>
-      <div class="images-container" id="imagesContainer"></div>
+    <!-- History Sidebar -->
+    <div class="history-panel" id="historyPanel">
+        <h3>Lịch sử ảnh</h3>
+        <div id="historyContainer"></div>
     </div>
 
-    <div class="submit-section">
-      <button class="btn-generate" id="generateBtn" onclick="generateImage()">Tạo Ảnh</button>
+    <!-- Popup Modal -->
+    <div id="imageModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <img id="modalImage" src="" alt="Preview" />
+            <a id="downloadBtn" href="#" download class="btn-download" target="_blank">Tải ảnh về</a>
+        </div>
     </div>
 
-    <div class="loading" id="loading">
-      <div class="spinner"></div>
-      <p>Đang xử lý...</p>
-    </div>
-
-    <div class="error-message" id="errorMessage"></div>
-
-    <div class="result-section" id="resultSection">
-      <h3>✅ Kết quả</h3>
-      <img class="result-image" id="resultImage" alt="Generated Image" />
-      <div class="result-url" id="resultUrl"></div>
-    </div>
-  </div>
-
-  <!-- ✅ Panel kết quả bên phải -->
-  <div id="previewPanel">
-    <h4>🖼️ Kết quả tạo ảnh</h4>
-    <img id="previewPanelImage" src="" alt="Preview Image" />
-    <p id="previewPanelUrl"></p>
-  </div>
-
-  <script src="script.js"></script>
+    <script src="functions.js"></script>
 </body>
 </html>
