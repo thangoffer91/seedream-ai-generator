@@ -6,11 +6,11 @@
   <title>🎨 AI Image Generator</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Alpine.js (framework chính) -->
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
-
-  <!-- App chính -->
+  <!-- ⚡️ Load app JS trước để Alpine nhận diện đúng -->
   <script src="ai-app.js" defer></script>
+
+  <!-- ✅ AlpineJS -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 
 <body x-data="aiApp()" x-init="init()">
@@ -107,5 +107,11 @@
     </div>
   </template>
 
+  <!-- ✅ Debug log -->
+  <script>
+    document.addEventListener('alpine:init', () => {
+      console.log('✅ Alpine đã sẵn sàng và nhận diện app!');
+    });
+  </script>
 </body>
 </html>
