@@ -1,5 +1,5 @@
 // ===============================
-// AI IMAGE GENERATOR APP — FINAL FIXED VERSION
+// AI IMAGE GENERATOR APP — FINAL FIXED STABLE VERSION (Popup + History fix)
 // ===============================
 
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
@@ -29,7 +29,7 @@ function aiApp() {
       this.imageSlots.push({ id, file: null, preview: null });
     },
 
-    // Chọn ảnh
+    // Xử lý chọn ảnh
     handleFileSelect(slot, event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -109,51 +109,59 @@ function aiApp() {
     },
 
     // -------------------------------
-    // POPUP ẢNH LỚN (có nút ❌ và click ngoài để đóng)
+    // POPUP ẢNH LỚN (với nút ❌ và click ngoài để đóng)
     // -------------------------------
     openModal(url) {
       this.modalImage = url;
-      let modal = document.querySelector('.modal');
+      let modal = document.querySelector('#aiImageModal');
 
+      // Nếu chưa có modal thì tạo mới một lần duy nhất
       if (!modal) {
         console.warn('⚠️ Modal chưa tồn tại, tạo mới...');
         modal = document.createElement('div');
+        modal.id = 'aiImageModal';
         modal.className = 'modal';
         modal.innerHTML = `
-          <span class="close">&times;</span>
-          <img class="modal-content">
-          <a class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
+          <div class="modal-overlay"></div>
+          <div class="modal-content-box">
+            <span class="close-btn">×</span>
+            <img class="modal-image" />
+            <a class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
+          </div>
         `;
         document.body.appendChild(modal);
 
-        // Gắn sự kiện đóng popup (nút X)
-        modal.querySelector('.close').addEventListener('click', () => {
+        // Sự kiện đóng popup (nút X)
+        modal.querySelector('.close-btn').addEventListener('click', () => {
           window.closeModal();
         });
 
-        // Gắn sự kiện click nền để đóng
-        modal.addEventListener('click', (e) => {
-          if (e.target === modal) window.closeModal();
+        // Click nền để đóng popup
+        modal.querySelector('.modal-overlay').addEventListener('click', () => {
+          window.closeModal();
         });
       }
 
-      const img = modal.querySelector('.modal-content');
+      const img = modal.querySelector('.modal-image');
       const dl = modal.querySelector('.download-btn');
       if (img) img.src = url;
       if (dl) dl.href = url;
-      modal.style.display = 'block';
+      modal.style.display = 'flex';
 
       console.log('🔍 Mở modal với ảnh:', url);
     },
 
     closeModal() {
-      const modal = document.querySelector('.modal');
-      if (modal) modal.style.display = 'none';
+      const modal = document.querySelector('#aiImageModal');
+      if (modal) {
+        modal.style.display = 'none';
+        console.log('✅ Popup đã đóng');
+      }
       this.modalImage = null;
     },
 
     // -------------------------------
-    // LỊCH SỬ ẢNH (sessionStorage: tự xóa khi reload cứng/tab đóng)
+    // LỊCH SỬ ẢNH (sessionStorage - tự xóa khi reload/tab đóng)
     // -------------------------------
     saveToHistory(url) {
       const item = { url, time: Date.now() };
@@ -177,7 +185,7 @@ function aiApp() {
 }
 
 // -------------------------------
-// PANEL LỊCH SỬ (tự cập nhật khi có ảnh mới)
+// PANEL LỊCH SỬ
 // -------------------------------
 function aiAppHistory() {
   return {
@@ -210,21 +218,21 @@ function aiAppHistory() {
 // GLOBAL POPUP HANDLER
 // -------------------------------
 window.openModal = (url) => {
-  const modal = document.querySelector('.modal');
+  const modal = document.querySelector('#aiImageModal');
   if (!modal) {
     console.warn('⚠️ Modal không tồn tại để mở.');
     return;
   }
-  const img = modal.querySelector('.modal-content');
+  const img = modal.querySelector('.modal-image');
   const dl = modal.querySelector('.download-btn');
   if (img) img.src = url;
   if (dl) dl.href = url;
-  modal.style.display = 'block';
+  modal.style.display = 'flex';
   console.log('🌐 Popup mở:', url);
 };
 
 window.closeModal = () => {
-  const modal = document.querySelector('.modal');
+  const modal = document.querySelector('#aiImageModal');
   if (modal) modal.style.display = 'none';
   console.log('🌐 Popup đóng');
 };
@@ -233,4 +241,4 @@ window.closeModal = () => {
 window.aiApp = aiApp;
 window.aiAppHistory = aiAppHistory;
 
-console.log('✅ ai-app.js FINAL FIXED & STABLE loaded');
+console.log('✅ ai-app.js FINAL FIXED STABLE loaded');
