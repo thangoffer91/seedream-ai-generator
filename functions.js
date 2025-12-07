@@ -1,26 +1,26 @@
-// WEBHOOK URL
+// ✅ Webhook backend N8N của bạn
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
 
 let imageSlots = [];
 let slotCounter = 0;
 
-// Tạo slot ảnh ban đầu
+// ✅ Tạo slot ảnh đầu tiên khi load trang
+addImageSlot();
+
+// ✅ Thêm slot ảnh mới
 function addImageSlot() {
   const slotId = slotCounter++;
-  const isBase = imageSlots.length === 0;
-
   const slot = {
     id: slotId,
     file: null,
     preview: null,
     uploaded: false
   };
-
   imageSlots.push(slot);
   renderImageSlots();
 }
 
-// Hiển thị các image slot
+// ✅ Vẽ lại giao diện các ảnh đã chọn
 function renderImageSlots() {
   const container = document.getElementById('imagesContainer');
   container.innerHTML = '';
@@ -39,8 +39,7 @@ function renderImageSlots() {
         <button class="btn-upload" onclick="document.getElementById('file-${slot.id}').click()">
           ${slot.file ? '🔄 Đổi ảnh' : '📁 Chọn ảnh'}
         </button>
-        <button class="btn-delete" onclick="deleteImageSlot(${slot.id})"
-          ${isBase && imageSlots.length === 1 ? 'disabled' : ''}>
+        <button class="btn-delete" onclick="deleteImageSlot(${slot.id})" ${isBase && imageSlots.length === 1 ? 'disabled' : ''}>
           🗑️ Xóa
         </button>
       </div>
@@ -49,7 +48,7 @@ function renderImageSlots() {
   });
 }
 
-// Xử lý khi chọn file ảnh
+// ✅ Xử lý khi người dùng chọn ảnh
 function handleFileSelect(slotId, event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -67,13 +66,13 @@ function handleFileSelect(slotId, event) {
   reader.readAsDataURL(file);
 }
 
-// Xóa slot
+// ✅ Xoá ảnh
 function deleteImageSlot(slotId) {
   imageSlots = imageSlots.filter(s => s.id !== slotId);
   renderImageSlots();
 }
 
-// Chuyển file sang base64
+// ✅ Chuyển file thành base64
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -83,7 +82,7 @@ function fileToBase64(file) {
   });
 }
 
-// Hiển thị lỗi
+// ✅ Hiển thị lỗi
 function showError(message) {
   const errorDiv = document.getElementById('errorMessage');
   errorDiv.textContent = message;
@@ -91,7 +90,7 @@ function showError(message) {
   setTimeout(() => errorDiv.classList.remove('show'), 5000);
 }
 
-// Gửi yêu cầu tạo ảnh
+// ✅ Gửi yêu cầu tạo ảnh
 async function generateImage() {
   const prompt = document.getElementById('prompt').value.trim();
 
@@ -106,11 +105,8 @@ async function generateImage() {
     return;
   }
 
-  // Bắt đầu loading
   document.getElementById('loading').classList.add('show');
   document.getElementById('generateBtn').disabled = true;
-  document.getElementById('resultsSection').classList.remove('show');
-
 
   try {
     const images = await Promise.all(
@@ -136,9 +132,7 @@ async function generateImage() {
     const imageUrl = result.imageUrl || result.fifeUrl || result.url;
 
     if (imageUrl) {
-      document.getElementById('resultImage').src = imageUrl;
-      document.getElementById('resultUrl').textContent = imageUrl;
-      document.getElementById('resultSection').classList.add('show');
+      addResultImage(imageUrl);
     } else {
       throw new Error('Không nhận được URL ảnh từ server');
     }
@@ -152,5 +146,38 @@ async function generateImage() {
   }
 }
 
-// Khởi tạo
-addImageSlot();
+// ✅ Thêm ảnh kết quả vào giao diện + lịch sử
+function addResultImage(imageUrl) {
+  const gallery = document.getElementById('resultsGallery');
+  const thumb = document.createElement('img');
+  thumb.src = imageUrl;
+  thumb.className = 'result-thumb';
+  thumb.alt = 'Generated Image';
+  thumb.onclick = () => showImageModal(imageUrl);
+  gallery.prepend(thumb);
+
+  const historyList = document.getElementById('historyList');
+  const historyItem = document.createElement('div');
+  historyItem.innerHTML = `
+    <img src="${imageUrl}" class="result-thumb" onclick="showImageModal('${imageUrl}')">
+  `;
+  historyList.prepend(historyItem);
+
+  document.getElementById('resultsSection').classList.add('show');
+}
+
+// ✅ Hiển thị popup preview
+function showImageModal(url) {
+  const modal = document.getElementById('imageModal');
+  const modalImg = document.getElementById('modalImage');
+  const downloadBtn = document.getElementById('downloadBtn');
+
+  modal.style.display = 'block';
+  modalImg.src = url;
+  downloadBtn.href = url;
+}
+
+// ✅ Đóng popup
+function closeModal() {
+  document.getElementById('imageModal').style.display = 'none';
+}
