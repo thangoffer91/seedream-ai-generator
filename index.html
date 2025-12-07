@@ -6,9 +6,11 @@
   <title>🎨 AI Image Generator</title>
   <link rel="stylesheet" href="style.css" />
 
-  <!-- Thứ tự script rất quan trọng -->
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="ai-app.js"></script>
+  <!-- Alpine.js (framework chính) -->
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+  <!-- App chính -->
+  <script src="ai-app.js" defer></script>
 </head>
 
 <body x-data="aiApp()" x-init="init()">
@@ -84,11 +86,14 @@
   </div>
 
   <!-- PANEL LỊCH SỬ -->
-  <div class="history-panel" x-data="aiAppHistory()">
-    <h3>Lịch sử ảnh</h3>
+  <div class="history-panel" x-data="aiAppHistory()" x-init="init()">
+    <h3>🕒 Lịch sử ảnh (tự xóa sau 24h)</h3>
     <div id="historyList">
-      <template x-for="(url, index) in history" :key="index">
-        <img :src="url" class="result-thumb" @click="$root.openModal(url)">
+      <template x-for="(item, index) in history" :key="index">
+        <img :src="item.url" class="result-thumb" @click="window.openModal(item.url)">
+      </template>
+      <template x-if="history.length === 0">
+        <p class="empty-history">Không có ảnh trong 24h qua.</p>
       </template>
     </div>
   </div>
