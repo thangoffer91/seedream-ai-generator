@@ -10,7 +10,7 @@ function aiApp() {
     modalImage: null,
 
     init() {
-      console.log('🟢 App khởi tạo (Dark Theme)');
+      console.log('✅ App khởi tạo thành công!');
       this.addImageSlot();
       this.loadHistory();
     },
@@ -33,20 +33,20 @@ function aiApp() {
       this.imageSlots = this.imageSlots.filter((s) => s.id !== id);
     },
 
+    async fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+
     async generateImage() {
-      if (!this.prompt.trim()) {
-        this.showError('⚠️ Nhập prompt trước khi tạo ảnh!');
-        return;
-      }
+      if (!this.prompt.trim()) return this.showError('⚠️ Nhập prompt!');
       const uploaded = this.imageSlots.filter((s) => s.file);
-      if (uploaded.length === 0) {
-        this.showError('⚠️ Hãy chọn ít nhất 1 ảnh!');
-        return;
-      }
-
+      if (uploaded.length === 0) return this.showError('⚠️ Chọn ít nhất 1 ảnh!');
       this.loading = true;
-      this.errorMessage = '';
-
       try {
         const images = await Promise.all(
           uploaded.map(async (s) => ({
@@ -55,34 +55,21 @@ function aiApp() {
             mimetype: s.file.type,
           }))
         );
-
         const res = await fetch(WEBHOOK_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt: this.prompt, images }),
         });
-
-        if (!res.ok) throw new Error('Webhook lỗi ' + res.status);
         const data = await res.json();
         const url = data.imageUrl || data.url || data.fileUrl;
-        if (!url) throw new Error('Không nhận URL ảnh từ server');
-
+        if (!url) throw new Error('Không có URL ảnh trả về');
         this.results.unshift(url);
         this.saveToHistory(url);
-      } catch (e) {
-        this.showError('❌ ' + e.message);
+      } catch (err) {
+        this.showError('❌ ' + err.message);
       } finally {
         this.loading = false;
       }
-    },
-
-    fileToBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(',')[1]);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
     },
 
     showError(msg) {
@@ -104,8 +91,8 @@ function aiApp() {
             <a class="download-btn" href="#" download target="_blank">Tải ảnh về</a>
           </div>`;
         document.body.appendChild(modal);
-        modal.querySelector('.close-btn').addEventListener('click', () => window.closeModal());
-        modal.querySelector('.modal-overlay').addEventListener('click', () => window.closeModal());
+        modal.querySelector('.close-btn').addEventListener('click', () => this.closeModal());
+        modal.querySelector('.modal-overlay').addEventListener('click', () => this.closeModal());
       }
       modal.querySelector('.modal-image').src = url;
       modal.querySelector('.download-btn').href = url;
@@ -118,9 +105,8 @@ function aiApp() {
     },
 
     saveToHistory(url) {
-      const item = { url, time: Date.now() };
       const history = JSON.parse(sessionStorage.getItem('ai_image_history') || '[]');
-      history.unshift(item);
+      history.unshift({ url, time: Date.now() });
       sessionStorage.setItem('ai_image_history', JSON.stringify(history));
       window.dispatchEvent(new Event('ai-history-updated'));
     },
@@ -128,7 +114,8 @@ function aiApp() {
     loadHistory() {
       const raw = JSON.parse(sessionStorage.getItem('ai_image_history') || '[]');
       const now = Date.now();
-      const valid = raw.filter((h) => now - h.time < 24 * 60 * 60 * 1000);
+      const ONE_DAY = 24 * 60 * 60 * 1000;
+      const valid = raw.filter((h) => now - h.time < ONE_DAY);
       sessionStorage.setItem('ai_image_history', JSON.stringify(valid));
       this.results = valid.map((h) => h.url);
     },
@@ -148,25 +135,12 @@ function aiAppHistory() {
       this.history = data.filter((h) => now - h.time < 24 * 60 * 60 * 1000);
     },
     openModal(url) {
-      if (window.openModal) window.openModal(url);
+      if (window.aiApp) window.aiApp().openModal(url);
     },
   };
 }
 
-window.openModal = (url) => {
-  const modal = document.querySelector('#aiImageModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    modal.querySelector('.modal-image').src = url;
-    modal.querySelector('.download-btn').href = url;
-  }
-};
-
-window.closeModal = () => {
-  const modal = document.querySelector('#aiImageModal');
-  if (modal) modal.style.display = 'none';
-};
-
 window.aiApp = aiApp;
 window.aiAppHistory = aiAppHistory;
-console.log('🌙 Dark theme app loaded');
+
+console.log('🌙 Dark theme app fully loaded');
