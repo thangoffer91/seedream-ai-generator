@@ -1,491 +1,53 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Generator</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        
-        h1 {
-            text-align: center;
-            color: #667eea;
-            margin-bottom: 30px;
-            font-size: 2.5em;
-        }
-        
-        .prompt-section {
-            margin-bottom: 30px;
-        }
-        
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #333;
-            font-size: 1.1em;
-        }
-        
-        textarea {
-            width: 100%;
-            padding: 15px;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-            font-size: 16px;
-            resize: vertical;
-            min-height: 100px;
-            font-family: inherit;
-        }
-        
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        
-        .upload-section {
-            margin-bottom: 30px;
-        }
-        
-        .add-image-btn {
-            background: #667eea;
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 10px;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            transition: all 0.3s;
-        }
-        
-        .add-image-btn:hover {
-            background: #5568d3;
-            transform: translateY(-2px);
-        }
-        
-        .images-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        
-        .image-item {
-            border: 2px dashed #ddd;
-            border-radius: 15px;
-            padding: 15px;
-            position: relative;
-            background: #f9f9f9;
-        }
-        
-        .image-item.base-image {
-            border-color: #667eea;
-            background: #f0f4ff;
-        }
-        
-        .image-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: #667eea;
-            margin-bottom: 10px;
-            display: block;
-        }
-        
-        .image-preview {
-            width: 100%;
-            height: 200px;
-            background: #e9ecef;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 10px;
-            overflow: hidden;
-        }
-        
-        .image-preview img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .image-preview.empty {
-            border: 2px dashed #ccc;
-            color: #999;
-            font-size: 14px;
-        }
-        
-        .image-actions {
-            display: flex;
-            gap: 10px;
-        }
-        
-        .btn-upload, .btn-delete {
-            flex: 1;
-            padding: 8px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s;
-        }
-        
-        .btn-upload {
-            background: #28a745;
-            color: white;
-        }
-        
-        .btn-upload:hover {
-            background: #218838;
-        }
-        
-        .btn-delete {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn-delete:hover {
-            background: #c82333;
-        }
-        
-        .btn-delete:disabled, .btn-upload:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .submit-section {
-            text-align: center;
-            margin-top: 30px;
-        }
-        
-        .btn-generate {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px 50px;
-            border-radius: 50px;
-            font-size: 18px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .btn-generate:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
-        }
-        
-        .btn-generate:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        
-        .result-section {
-            margin-top: 30px;
-            padding: 20px;
-            background: #f0f4ff;
-            border-radius: 15px;
-            display: none;
-        }
-        
-        .result-section.show {
-            display: block;
-        }
-        
-        .result-image {
-            width: 100%;
-            border-radius: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .result-url {
-            background: white;
-            padding: 15px;
-            border-radius: 10px;
-            word-break: break-all;
-            font-family: monospace;
-            font-size: 12px;
-        }
-        
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 20px;
-        }
-        
-        .loading.show {
-            display: block;
-        }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        input[type="file"] {
-            display: none;
-        }
-        
-        .error-message {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 10px;
-            margin-top: 20px;
-            display: none;
-        }
-        
-        .error-message.show {
-            display: block;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Image Generator</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="container">
-        <h1>🎨 AI Image Generator</h1>
-        
-        <div class="prompt-section">
-            <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
-            <textarea id="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
-        </div>
-        
-        <div class="upload-section">
-            <label>Upload Ảnh</label>
-            <button class="add-image-btn" onclick="addImageSlot()">
-                <span>➕</span> Thêm ảnh
-            </button>
-            
-            <div class="images-container" id="imagesContainer"></div>
-        </div>
-        
-        <div class="submit-section">
-            <button class="btn-generate" id="generateBtn" onclick="generateImage()">
-                Tạo Ảnh
-            </button>
-        </div>
-        
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p style="margin-top: 15px; color: #667eea; font-weight: 600;">Đang xử lý...</p>
-        </div>
-        
-        <div class="error-message" id="errorMessage"></div>
-        
-        <div class="result-section" id="resultSection">
-            <h3 style="color: #667eea; margin-bottom: 15px;">✅ Kết quả</h3>
-            <img class="result-image" id="resultImage" alt="Generated Image">
-            <div class="result-url" id="resultUrl"></div>
-        </div>
+  <div class="container">
+    <h1>🎨 AI Image Generator</h1>
+
+    <div class="prompt-section">
+      <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
+      <textarea id="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
     </div>
 
-    <script>
-        // PRODUCTION WEBHOOK URL
-        const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
-        
-        let imageSlots = [];
-        let slotCounter = 0;
-        
-        // Thêm slot upload ảnh
-        function addImageSlot() {
-            const slotId = slotCounter++;
-            const isBase = imageSlots.length === 0;
-            
-            const slot = {
-                id: slotId,
-                file: null,
-                preview: null,
-                uploaded: false
-            };
-            
-            imageSlots.push(slot);
-            renderImageSlots();
-        }
-        
-        // Render tất cả image slots
-        function renderImageSlots() {
-            const container = document.getElementById('imagesContainer');
-            container.innerHTML = '';
-            
-            imageSlots.forEach((slot, index) => {
-                const isBase = index === 0;
-                const div = document.createElement('div');
-                div.className = `image-item ${isBase ? 'base-image' : ''}`;
-                div.innerHTML = `
-                    <span class="image-label">
-                        ${isBase ? '🎯 Ảnh gốc (Base Image)' : `📷 Ảnh tham khảo ${index}`}
-                    </span>
-                    <div class="image-preview ${slot.preview ? '' : 'empty'}" id="preview-${slot.id}">
-                        ${slot.preview ? `<img src="${slot.preview}">` : 'Chưa chọn ảnh'}
-                    </div>
-                    <input type="file" id="file-${slot.id}" accept="image/*" 
-                           onchange="handleFileSelect(${slot.id}, event)">
-                    <div class="image-actions">
-                        <button class="btn-upload" onclick="document.getElementById('file-${slot.id}').click()">
-                            ${slot.file ? '🔄 Đổi ảnh' : '📁 Chọn ảnh'}
-                        </button>
-                        <button class="btn-delete" onclick="deleteImageSlot(${slot.id})"
-                                ${isBase && imageSlots.length === 1 ? 'disabled' : ''}>
-                            🗑️ Xóa
-                        </button>
-                    </div>
-                `;
-                container.appendChild(div);
-            });
-        }
-        
-        // Xử lý chọn file
-        function handleFileSelect(slotId, event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const slot = imageSlots.find(s => s.id === slotId);
-            if (!slot) return;
-            
-            slot.file = file;
-            
-            // Preview ảnh
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                slot.preview = e.target.result;
-                renderImageSlots();
-            };
-            reader.readAsDataURL(file);
-        }
-        
-        // Xóa image slot
-        function deleteImageSlot(slotId) {
-            imageSlots = imageSlots.filter(s => s.id !== slotId);
-            renderImageSlots();
-        }
-        
-        // Convert file to base64
-        function fileToBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-        }
-        
-        // Show error message
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.classList.add('show');
-            setTimeout(() => {
-                errorDiv.classList.remove('show');
-            }, 5000);
-        }
-        
-        // Generate image
-        async function generateImage() {
-            const prompt = document.getElementById('prompt').value.trim();
-            
-            if (!prompt) {
-                showError('Vui lòng nhập prompt!');
-                return;
-            }
-            
-            const uploadedImages = imageSlots.filter(s => s.file);
-            if (uploadedImages.length === 0) {
-                showError('Vui lòng upload ít nhất 1 ảnh!');
-                return;
-            }
-            
-            // Show loading
-            document.getElementById('loading').classList.add('show');
-            document.getElementById('generateBtn').disabled = true;
-            document.getElementById('resultSection').classList.remove('show');
-            
-            try {
-                // Convert images to base64
-                const images = await Promise.all(
-                    uploadedImages.map(async (slot) => ({
-                        base64: await fileToBase64(slot.file),
-                        filename: slot.file.name,
-                        mimetype: slot.file.type
-                    }))
-                );
-                
-                console.log('Sending to webhook:', { prompt, imageCount: images.length });
-                
-                // Call webhook
-                const response = await fetch(WEBHOOK_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        prompt: prompt,
-                        images: images
-                    })
-                });
-                
-                console.log('Response status:', response.status);
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`Webhook error: ${response.status} - ${errorText}`);
-                }
-                
-                const result = await response.json();
-                console.log('Result:', result);
-                
-                // Show result
-                const imageUrl = result.imageUrl || result.fifeUrl || result.url;
-                if (imageUrl) {
-                    document.getElementById('resultImage').src = imageUrl;
-                    document.getElementById('resultUrl').textContent = imageUrl;
-                    document.getElementById('resultSection').classList.add('show');
-                } else {
-                    throw new Error('Không nhận được URL ảnh từ server');
-                }
-                
-            } catch (error) {
-                console.error('Error:', error);
-                showError('Có lỗi xảy ra: ' + error.message);
-            } finally {
-                document.getElementById('loading').classList.remove('show');
-                document.getElementById('generateBtn').disabled = false;
-            }
-        }
-        
-        // Initialize with 1 base image slot
-        addImageSlot();
-    </script>
+    <div class="upload-section">
+      <label>Upload Ảnh</label>
+      <button class="add-image-btn" onclick="addImageSlot()">
+        <span>➕</span> Thêm ảnh
+      </button>
+      <div class="images-container" id="imagesContainer"></div>
+    </div>
+
+    <div class="submit-section">
+      <button class="btn-generate" id="generateBtn" onclick="generateImage()">Tạo Ảnh</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>Đang xử lý...</p>
+    </div>
+
+    <div class="error-message" id="errorMessage"></div>
+
+    <div class="result-section" id="resultSection">
+      <h3>✅ Kết quả</h3>
+      <img class="result-image" id="resultImage" alt="Generated Image" />
+      <div class="result-url" id="resultUrl"></div>
+    </div>
+  </div>
+
+  <!-- ✅ Panel kết quả bên phải -->
+  <div id="previewPanel">
+    <h4>🖼️ Kết quả tạo ảnh</h4>
+    <img id="previewPanelImage" src="" alt="Preview Image" />
+    <p id="previewPanelUrl"></p>
+  </div>
+
+  <script src="script.js"></script>
 </body>
 </html>
