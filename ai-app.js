@@ -24,7 +24,6 @@ document.addEventListener('alpine:init', () => {
         const now = Date.now();
         this.items = raw.filter(h => now - h.time < CONFIG.HISTORY_EXPIRY);
         
-        // Cleanup old items from storage
         if (this.items.length !== raw.length) {
           this.save();
         }
@@ -38,7 +37,6 @@ document.addEventListener('alpine:init', () => {
       const newItem = { url, time: Date.now() };
       this.items.unshift(newItem);
       
-      // Limit history size
       if (this.items.length > CONFIG.MAX_HISTORY_ITEMS) {
         this.items = this.items.slice(0, CONFIG.MAX_HISTORY_ITEMS);
       }
@@ -85,8 +83,6 @@ function aiApp() {
       console.log("✅ App initialized");
       this.addImageSlot();
       this.loadResults();
-      
-      // Initialize store
       this.$store.imageHistory.init();
     },
     
@@ -101,6 +97,15 @@ function aiApp() {
       });
     },
     
+    // FIX: Trigger file input bằng cách truyền $event.target
+    triggerFileInput(event) {
+      const button = event.target;
+      const fileInput = button.nextElementSibling;
+      if (fileInput && fileInput.type === 'file') {
+        fileInput.click();
+      }
+    },
+    
     async handleFileSelect(slot, event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -108,12 +113,14 @@ function aiApp() {
       // Validate file type
       if (!file.type.startsWith('image/')) {
         this.showError('❌ Vui lòng chọn file ảnh hợp lệ');
+        event.target.value = '';
         return;
       }
       
       // Validate file size
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         this.showError(`❌ File quá lớn (max ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`);
+        event.target.value = '';
         return;
       }
       
@@ -162,7 +169,6 @@ function aiApp() {
       this.errorMessage = "";
       
       try {
-        // Prepare images
         const uploadedSlots = this.imageSlots.filter(s => s.file);
         const images = await Promise.all(
           uploadedSlots.map(async (slot) => ({
@@ -172,11 +178,9 @@ function aiApp() {
           }))
         );
         
-        // Setup timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
         
-        // Make API request
         const response = await fetch(CONFIG.WEBHOOK_URL, {
           method: "POST",
           headers: { 
@@ -191,7 +195,6 @@ function aiApp() {
         
         clearTimeout(timeoutId);
         
-        // Check response
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
@@ -203,7 +206,6 @@ function aiApp() {
           throw new Error("Không nhận được URL ảnh từ server");
         }
         
-        // Success - update state
         this.results.unshift(imageUrl);
         this.$store.imageHistory.add(imageUrl);
         
@@ -229,7 +231,6 @@ function aiApp() {
       }
     },
     
-    // Error Handling
     showError(message) {
       this.errorMessage = message;
       setTimeout(() => {
@@ -237,12 +238,10 @@ function aiApp() {
       }, 5000);
     },
     
-    // Modal Control
     openModal(url) {
       window.dispatchEvent(new CustomEvent('modal-open', { detail: url }));
     },
     
-    // Results Management
     loadResults() {
       this.results = this.$store.imageHistory.items.map(h => h.url);
     },
@@ -295,7 +294,6 @@ function imageModal() {
       document.body.style.overflow = '';
     },
     
-    // Close on ESC key
     handleKeydown(e) {
       if (e.key === 'Escape') {
         this.close();
@@ -348,11 +346,17 @@ window.addEventListener("DOMContentLoaded", () => {
             <div class="image-actions">
               <button 
                 class="btn-upload" 
-                @click="$refs['file-' + slot.id].click()"
+                @click="triggerFileInput($event)"
                 :disabled="loading"
               >
                 📁 Chọn ảnh
               </button>
+              <input 
+                type="file" 
+                accept="image/*" 
+                @change="handleFileSelect(slot, $event)" 
+                style="display: none;"
+              />
               <button 
                 class="btn-delete" 
                 @click="deleteImageSlot(slot.id)"
@@ -360,13 +364,6 @@ window.addEventListener("DOMContentLoaded", () => {
               >
                 🗑️ Xóa
               </button>
-              <input 
-                type="file" 
-                accept="image/*" 
-                :x-ref="'file-' + slot.id"
-                @change="handleFileSelect(slot, $event)" 
-                hidden 
-              />
             </div>
           </div>
         </template>
@@ -466,7 +463,11 @@ window.addEventListener("DOMContentLoaded", () => {
     </div>
   `;
   
-  // Start Alpine
-  Alpine.start();
-  console.log("✅ Alpine running - App ready!");
+  // FIX: Kiểm tra Alpine đã tồn tại chưa trước khi start
+  if (typeof Alpine !== 'undefined' && !Alpine.version) {
+    Alpine.start();
+    console.log("✅ Alpine running - App ready!");
+  } else if (typeof Alpine !== 'undefined') {
+    console.log("✅ Alpine already started - App ready!");
+  }
 });
