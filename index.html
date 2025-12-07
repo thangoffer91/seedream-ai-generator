@@ -6,11 +6,6 @@
   <meta name="theme-color" content="#0e1117" />
   <meta name="description" content="AI Image Generator - Tạo ảnh bằng AI với Midjourney style" />
   
-  <!-- PWA Meta Tags -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="AI Generator" />
-  
   <title>🎨 AI Image Generator — Midjourney Style</title>
   
   <!-- PWA Manifest -->
@@ -27,17 +22,6 @@
 </head>
 
 <body class="dark">
-  <!-- PWA Install Banner -->
-  <div id="install-banner" class="install-banner" style="display: none;">
-    <div class="install-content">
-      <span>📱 Cài đặt app để dùng offline</span>
-      <div>
-        <button id="install-btn" class="btn-install">Cài đặt</button>
-        <button id="dismiss-btn" class="btn-dismiss">Bỏ qua</button>
-      </div>
-    </div>
-  </div>
-
   <div id="app-root" class="app-layout"></div>
 
   <!-- AlpineJS -->
@@ -46,7 +30,6 @@
   
   <!-- Service Worker Registration -->
   <script>
-    // Register Service Worker
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js')
@@ -58,46 +41,6 @@
           });
       });
     }
-
-    // PWA Install Prompt
-    let deferredPrompt;
-    const installBanner = document.getElementById('install-banner');
-    const installBtn = document.getElementById('install-btn');
-    const dismissBtn = document.getElementById('dismiss-btn');
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-      e.preventDefault();
-      deferredPrompt = e;
-      
-      if (!localStorage.getItem('pwa-dismissed')) {
-        installBanner.style.display = 'block';
-      }
-    });
-
-    if (installBtn) {
-      installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        
-        console.log(`User response: ${outcome}`);
-        deferredPrompt = null;
-        installBanner.style.display = 'none';
-      });
-    }
-
-    if (dismissBtn) {
-      dismissBtn.addEventListener('click', () => {
-        installBanner.style.display = 'none';
-        localStorage.setItem('pwa-dismissed', 'true');
-      });
-    }
-
-    window.addEventListener('appinstalled', () => {
-      installBanner.style.display = 'none';
-      console.log('✅ PWA installed successfully');
-    });
   </script>
 </body>
 </html>
