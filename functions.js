@@ -109,7 +109,8 @@ async function generateImage() {
   // Bắt đầu loading
   document.getElementById('loading').classList.add('show');
   document.getElementById('generateBtn').disabled = true;
-  document.getElementById('resultSection').classList.remove('show');
+  document.getElementById('resultsSection').classList.remove('show');
+
 
   try {
     const images = await Promise.all(
