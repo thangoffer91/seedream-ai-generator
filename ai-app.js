@@ -1,5 +1,5 @@
 // ===============================
-// AI IMAGE GENERATOR APP
+// AI IMAGE GENERATOR APP (Full Fixed)
 // ===============================
 
 const WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855';
@@ -94,7 +94,7 @@ function aiApp() {
 
         if (!url) throw new Error('Không nhận được URL ảnh từ server.');
 
-        this.results.push(url);
+        this.results.unshift(url);
         this.saveToHistory(url);
         console.log('✅ Ảnh tạo thành công:', url);
       } catch (err) {
@@ -139,9 +139,12 @@ function aiApp() {
     saveToHistory(url) {
       const item = { url, time: Date.now() };
       const history = JSON.parse(localStorage.getItem('ai_image_history') || '[]');
-      history.push(item);
+      history.unshift(item); // thêm vào đầu
       localStorage.setItem('ai_image_history', JSON.stringify(history));
       console.log('💾 Đã lưu ảnh vào lịch sử:', url);
+
+      // 👉 Phát sự kiện cho panel lịch sử cập nhật
+      window.dispatchEvent(new Event('ai-history-updated'));
     },
 
     loadHistory() {
@@ -159,7 +162,7 @@ function aiApp() {
 }
 
 // -------------------------------
-// PANEL LỊCH SỬ
+// PANEL LỊCH SỬ (auto cập nhật)
 // -------------------------------
 function aiAppHistory() {
   return {
@@ -168,6 +171,12 @@ function aiAppHistory() {
     init() {
       console.log('✅ History Panel initialized');
       this.load();
+
+      // 🔄 Nghe sự kiện cập nhật từ app chính
+      window.addEventListener('ai-history-updated', () => {
+        console.log('📢 Nhận sự kiện cập nhật lịch sử');
+        this.load();
+      });
     },
 
     load() {
@@ -175,7 +184,7 @@ function aiAppHistory() {
       const now = Date.now();
       const ONE_DAY = 24 * 60 * 60 * 1000;
       this.history = data.filter((h) => now - h.time < ONE_DAY);
-      console.log('📜 Dữ liệu lịch sử:', this.history);
+      console.log('📜 Cập nhật panel lịch sử:', this.history);
     },
 
     openModal(url) {
@@ -212,4 +221,4 @@ window.closeModal = () => {
 window.aiApp = aiApp;
 window.aiAppHistory = aiAppHistory;
 
-console.log('✅ ai-app.js loaded');
+console.log('✅ ai-app.js fully loaded with auto-history update');
