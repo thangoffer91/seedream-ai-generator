@@ -3,11 +3,159 @@ console.log("🚀 AI App initializing...");
 // ===== CONFIGURATION =====
 const CONFIG = {
   WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
-  MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
-  REQUEST_TIMEOUT: 60000, // 60 seconds
+  MAX_FILE_SIZE: 10 * 1024 * 1024,
+  MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
+  REQUEST_TIMEOUT: 60000,
   MAX_HISTORY_ITEMS: 50,
-  HISTORY_EXPIRY: 24 * 60 * 60 * 1000, // 24 hours
+  HISTORY_EXPIRY: 24 * 60 * 60 * 1000,
+  MAX_IMAGE_DIMENSION: 1920,
+  COMPRESSION_QUALITY: 0.85,
+  RATE_LIMIT_DELAY: 2000,
 };
+
+// ===== SECURITY & ANALYTICS =====
+class SecurityMonitor {
+  constructor() {
+    this.requestCount = 0;
+    this.lastRequestTime = 0;
+    this.suspiciousActivity = [];
+  }
+
+  sanitizePrompt(prompt) {
+    return prompt
+      .trim()
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, '')
+      .substring(0, 2000);
+  }
+
+  canMakeRequest() {
+    const now = Date.now();
+    if (now - this.lastRequestTime < CONFIG.RATE_LIMIT_DELAY) {
+      console.warn('⚠️ Rate limit: Too many requests');
+      return false;
+    }
+    this.lastRequestTime = now;
+    return true;
+  }
+
+  logSuspicious(type, details) {
+    this.suspiciousActivity.push({
+      type,
+      details,
+      timestamp: Date.now()
+    });
+    console.warn('🚨 Suspicious activity:', type, details);
+  }
+
+  trackEvent(eventName, data) {
+    try {
+      console.log(`📊 [Analytics] ${eventName}:`, data);
+      
+      const events = JSON.parse(localStorage.getItem('app_analytics') || '[]');
+      events.push({
+        event: eventName,
+        data,
+        timestamp: Date.now()
+      });
+      
+      if (events.length > 100) events.shift();
+      localStorage.setItem('app_analytics', JSON.stringify(events));
+    } catch (e) {
+      console.error('Analytics error:', e);
+    }
+  }
+}
+
+const security = new SecurityMonitor();
+
+// ===== IMAGE COMPRESSION =====
+class ImageCompressor {
+  static async compress(file, options = {}) {
+    const {
+      maxWidth = CONFIG.MAX_IMAGE_DIMENSION,
+      maxHeight = CONFIG.MAX_IMAGE_DIMENSION,
+      quality = CONFIG.COMPRESSION_QUALITY,
+    } = options;
+
+    console.log(`🖼️ Compressing: ${file.name} (${(file.size / 1024).toFixed(2)}KB)`);
+    
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onerror = () => reject(new Error('Không đọc được file'));
+      
+      reader.onload = (e) => {
+        const img = new Image();
+        
+        img.onerror = () => reject(new Error('File không phải ảnh hợp lệ'));
+        
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            let { width, height } = img;
+
+            if (width > maxWidth || height > maxHeight) {
+              const ratio = Math.min(maxWidth / width, maxHeight / height);
+              width *= ratio;
+              height *= ratio;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, width, height);
+
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  reject(new Error('Không thể nén ảnh'));
+                  return;
+                }
+
+                const compressed = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+
+                const sizeBefore = file.size / 1024;
+                const sizeAfter = compressed.size / 1024;
+                const saved = ((1 - sizeAfter / sizeBefore) * 100).toFixed(1);
+
+                console.log(`✅ Compressed: ${sizeBefore.toFixed(2)}KB → ${sizeAfter.toFixed(2)}KB (saved ${saved}%)`);
+                
+                security.trackEvent('image_compressed', {
+                  original_size: sizeBefore,
+                  compressed_size: sizeAfter,
+                  savings_percent: saved
+                });
+
+                resolve(compressed);
+              },
+              'image/jpeg',
+              quality
+            );
+          } catch (error) {
+            reject(error);
+          }
+        };
+
+        img.src = e.target.result;
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
+  static formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+}
 
 // ===== ALPINE STORE =====
 document.addEventListener('alpine:init', () => {
@@ -55,46 +203,46 @@ document.addEventListener('alpine:init', () => {
     clear() {
       this.items = [];
       sessionStorage.removeItem("ai_image_history");
+      security.trackEvent('history_cleared', {});
     }
   });
 });
 
-// ===== MAIN APP COMPONENT =====
+// ===== MAIN APP =====
 function aiApp() {
   return {
-    // State
     prompt: "",
     imageSlots: [],
     results: [],
     loading: false,
     errorMessage: "",
+    successMessage: "",
     
-    // Computed
     get hasImages() {
       return this.imageSlots.some(s => s.file);
     },
     
-    // FIX #2: Không bắt buộc phải có ảnh
     get canGenerate() {
       return !this.loading && this.prompt.trim().length > 0;
     },
     
-    // Lifecycle
     init() {
       console.log("✅ App initialized");
       this.addImageSlot();
       this.loadResults();
       this.$store.imageHistory.init();
+      security.trackEvent('app_initialized', { timestamp: Date.now() });
     },
     
-    // Image Slots Management
     addImageSlot() {
       const id = Date.now() + "-" + Math.random().toString(36).substr(2, 9);
       this.imageSlots.push({ 
         id, 
         file: null, 
         preview: null,
-        loading: false 
+        loading: false,
+        originalSize: 0,
+        compressedSize: 0
       });
     },
     
@@ -114,14 +262,14 @@ function aiApp() {
       const file = event.target.files[0];
       if (!file) return;
       
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        this.showError('❌ Vui lòng chọn file ảnh hợp lệ');
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (!validTypes.includes(file.type)) {
+        this.showError('❌ Chỉ chấp nhận file: JPG, PNG, WebP, GIF');
         event.target.value = '';
+        security.logSuspicious('invalid_file_type', { type: file.type });
         return;
       }
       
-      // Validate file size
       if (file.size > CONFIG.MAX_FILE_SIZE) {
         this.showError(`❌ File quá lớn (max ${CONFIG.MAX_FILE_SIZE / 1024 / 1024}MB)`);
         event.target.value = '';
@@ -129,35 +277,41 @@ function aiApp() {
       }
       
       slot.loading = true;
+      slot.originalSize = file.size;
       
       try {
-        slot.preview = await this.fileToDataURL(file);
-        slot.file = file;
+        const compressedFile = await ImageCompressor.compress(file);
+        slot.compressedSize = compressedFile.size;
+        slot.preview = await this.fileToDataURL(compressedFile);
+        slot.file = compressedFile;
+        
+        this.showSuccess(`✅ Đã tải ảnh (${ImageCompressor.formatFileSize(compressedFile.size)})`);
+        
+        security.trackEvent('image_uploaded', {
+          original_size: file.size,
+          compressed_size: compressedFile.size,
+          type: file.type
+        });
       } catch (e) {
-        this.showError('❌ Không thể đọc file: ' + e.message);
-        console.error('File read error:', e);
+        this.showError('❌ Không thể xử lý ảnh: ' + e.message);
+        console.error('File processing error:', e);
+        security.logSuspicious('file_processing_error', { error: e.message });
       } finally {
         slot.loading = false;
       }
     },
     
-    // FIX #1: Reassign array để trigger reactivity [web:11][web:12]
     deleteImageSlot(id) {
-      console.log('Deleting slot:', id);
       const newSlots = this.imageSlots.filter(s => s.id !== id);
-      
-      // FIX: Reassign array thay vì mutate để trigger Alpine reactivity
       this.imageSlots = newSlots.length > 0 ? newSlots : [];
       
-      // Always keep at least one slot
       if (this.imageSlots.length === 0) {
         this.addImageSlot();
       }
       
-      console.log('Slots after delete:', this.imageSlots.length);
+      security.trackEvent('image_deleted', { slot_id: id });
     },
     
-    // File Utilities
     fileToDataURL(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -172,15 +326,28 @@ function aiApp() {
       return dataURL.split(",")[1];
     },
     
-    // Main Generation Function
     async generateImage() {
       if (!this.canGenerate) return;
       
+      if (!security.canMakeRequest()) {
+        this.showError('⚠️ Vui lòng đợi 2 giây giữa các lần tạo ảnh');
+        return;
+      }
+      
+      const sanitizedPrompt = security.sanitizePrompt(this.prompt);
+      if (sanitizedPrompt !== this.prompt) {
+        security.logSuspicious('prompt_sanitized', { 
+          original: this.prompt.substring(0, 100) 
+        });
+      }
+      
       this.loading = true;
       this.errorMessage = "";
+      this.successMessage = "";
+      
+      const startTime = Date.now();
       
       try {
-        // FIX #2: Cho phép gửi request không cần ảnh
         const uploadedSlots = this.imageSlots.filter(s => s.file);
         
         let images = [];
@@ -203,8 +370,8 @@ function aiApp() {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ 
-            prompt: this.prompt.trim(), 
-            images: images // Có thể là array rỗng
+            prompt: sanitizedPrompt, 
+            images: images
           }),
           signal: controller.signal
         });
@@ -225,9 +392,19 @@ function aiApp() {
         this.results.unshift(imageUrl);
         this.$store.imageHistory.add(imageUrl);
         
-        // Reset form
+        const duration = Date.now() - startTime;
+        
+        security.trackEvent('image_generated', {
+          duration_ms: duration,
+          prompt_length: sanitizedPrompt.length,
+          images_count: images.length,
+          success: true
+        });
+        
+        this.showSuccess(`✅ Tạo ảnh thành công trong ${(duration / 1000).toFixed(1)}s`);
+        
         this.prompt = "";
-        this.imageSlots = []; // Reset array
+        this.imageSlots = [];
         this.addImageSlot();
         
         console.log('✅ Image generated successfully');
@@ -235,10 +412,18 @@ function aiApp() {
       } catch (error) {
         console.error('Generation error:', error);
         
+        const duration = Date.now() - startTime;
+        
+        security.trackEvent('image_generation_failed', {
+          duration_ms: duration,
+          error: error.message,
+          error_type: error.name
+        });
+        
         if (error.name === 'AbortError') {
           this.showError("❌ Timeout - Server không phản hồi sau 60 giây");
         } else if (error.message.includes('Failed to fetch')) {
-          this.showError("❌ Lỗi kết nối - Kiểm tra internet của bạn");
+          this.showError("❌ Lỗi kết nối - Kiểm tra internet hoặc thử lại");
         } else {
           this.showError("❌ " + error.message);
         }
@@ -254,8 +439,16 @@ function aiApp() {
       }, 5000);
     },
     
+    showSuccess(message) {
+      this.successMessage = message;
+      setTimeout(() => {
+        this.successMessage = "";
+      }, 3000);
+    },
+    
     openModal(url) {
       window.dispatchEvent(new CustomEvent('modal-open', { detail: url }));
+      security.trackEvent('image_viewed', { url });
     },
     
     loadResults() {
@@ -264,7 +457,6 @@ function aiApp() {
   };
 }
 
-// ===== HISTORY COMPONENT =====
 function aiAppHistory() {
   return {
     get history() {
@@ -287,7 +479,6 @@ function aiAppHistory() {
   };
 }
 
-// ===== MODAL COMPONENT =====
 function imageModal() {
   return {
     show: false,
@@ -318,21 +509,18 @@ function imageModal() {
   };
 }
 
-// ===== DOM RENDERING =====
 window.addEventListener("DOMContentLoaded", () => {
   console.log("⚙️ Mounting app...");
   
   const root = document.getElementById("app-root");
   
   root.innerHTML = `
-    <!-- Main Container -->
     <div class="container" x-data="aiApp()" x-init="init()" x-cloak>
       <h1>🎨 AI Image Generator</h1>
 
-      <!-- Error Message -->
       <div x-show="errorMessage" x-text="errorMessage" class="error-message" x-transition></div>
+      <div x-show="successMessage" x-text="successMessage" class="success-message" x-transition></div>
 
-      <!-- Prompt Input -->
       <textarea 
         x-model="prompt" 
         placeholder="Mô tả ảnh bạn muốn tạo..."
@@ -340,7 +528,6 @@ window.addEventListener("DOMContentLoaded", () => {
         rows="3"
       ></textarea>
 
-      <!-- Image Slots -->
       <div class="image-slots-container">
         <button class="add-image-btn" @click="addImageSlot()" :disabled="loading">
           ➕ Thêm ảnh (tùy chọn)
@@ -350,10 +537,13 @@ window.addEventListener("DOMContentLoaded", () => {
           <div class="image-item">
             <div class="image-preview">
               <template x-if="slot.loading">
-                <span class="loading-text">⏳ Đang tải...</span>
+                <span class="loading-text">⏳ Đang nén...</span>
               </template>
               <template x-if="!slot.loading && slot.preview">
-                <img :src="slot.preview" :alt="slot.file?.name" />
+                <div style="position: relative; width: 100%; height: 100%;">
+                  <img :src="slot.preview" :alt="slot.file?.name" />
+                  <span x-show="slot.compressedSize" class="image-size-badge" x-text="'💾 ' + (slot.compressedSize / 1024).toFixed(0) + 'KB'"></span>
+                </div>
               </template>
               <template x-if="!slot.loading && !slot.preview">
                 <span class="placeholder-text">📷 Chưa chọn</span>
@@ -371,7 +561,7 @@ window.addEventListener("DOMContentLoaded", () => {
               </button>
               <input 
                 type="file" 
-                accept="image/*" 
+                accept="image/jpeg,image/png,image/webp,image/gif" 
                 @change="handleFileSelect(slot, $event)" 
                 style="display: none;"
               />
@@ -388,7 +578,6 @@ window.addEventListener("DOMContentLoaded", () => {
         </template>
       </div>
 
-      <!-- Generate Button -->
       <button 
         class="btn-generate" 
         @click="generateImage()" 
@@ -403,7 +592,6 @@ window.addEventListener("DOMContentLoaded", () => {
         </template>
       </button>
 
-      <!-- Results -->
       <div x-show="results.length > 0" class="results-section" x-transition>
         <h3>✨ Kết quả</h3>
         <div class="results-grid">
@@ -420,7 +608,6 @@ window.addEventListener("DOMContentLoaded", () => {
       </div>
     </div>
 
-    <!-- History Panel -->
     <div class="history-panel" x-data="aiAppHistory()" x-cloak>
       <div class="history-header">
         <h3>🕒 Lịch sử</h3>
@@ -455,7 +642,6 @@ window.addEventListener("DOMContentLoaded", () => {
       </template>
     </div>
 
-    <!-- Modal -->
     <div 
       x-data="imageModal()" 
       x-init="init()"
