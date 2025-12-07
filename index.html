@@ -5,38 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>🎨 AI Image Generator</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- ⚡️ Load app JS trước để Alpine nhận diện đúng -->
-  <script src="ai-app.js" defer></script>
-
-  <!-- ✅ AlpineJS -->
   <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <script src="ai-app.js" defer></script>
 </head>
 
-<body x-data="aiApp()" x-init="init()">
-
-  <!-- KHU VỰC CHÍNH -->
-  <div class="container">
+<body>
+  <div class="container" x-data="aiApp()">
     <h1>🎨 AI Image Generator</h1>
 
-    <!-- PROMPT -->
     <div class="prompt-section">
       <label for="prompt">Prompt (Mô tả ảnh bạn muốn tạo)</label>
       <textarea x-model="prompt" placeholder="Ví dụ: gộp các món ăn trong ảnh thành 1 poster đẹp"></textarea>
     </div>
 
-    <!-- UPLOAD -->
     <div class="upload-section">
       <label>Upload Ảnh</label>
       <button class="add-image-btn" @click="addImageSlot()">➕ Thêm ảnh</button>
-
       <div class="images-container">
         <template x-for="(slot, index) in imageSlots" :key="slot.id">
           <div class="image-item" :class="{ 'base-image': index === 0 }">
-            <span class="image-label" 
-              x-text="index === 0 ? '🎯 Ảnh gốc (Base Image)' : '📷 Ảnh tham khảo ' + index">
-            </span>
-
+            <span class="image-label" x-text="index === 0 ? '🎯 Ảnh gốc (Base Image)' : '📷 Ảnh tham khảo ' + index"></span>
             <div class="image-preview" :class="{ 'empty': !slot.preview }">
               <template x-if="slot.preview">
                 <img :src="slot.preview" />
@@ -45,36 +33,25 @@
                 <span>Chưa chọn ảnh</span>
               </template>
             </div>
-
-            <input type="file" accept="image/*" :id="'file-' + slot.id" 
-              @change="handleFileSelect(slot, $event)" hidden>
-
+            <input type="file" accept="image/*" :id="'file-' + slot.id" @change="handleFileSelect(slot, $event)" hidden>
             <div class="image-actions">
-              <button class="btn-upload" 
-                @click="document.getElementById('file-' + slot.id).click()">
-                📁 Chọn ảnh
-              </button>
-              <button class="btn-delete" 
-                @click="deleteImageSlot(slot.id)"
-                :disabled="index === 0 && imageSlots.length === 1">
-                🗑️ Xóa
-              </button>
+              <button class="btn-upload" @click="document.getElementById('file-' + slot.id).click()">📁 Chọn ảnh</button>
+              <button class="btn-delete" @click="deleteImageSlot(slot.id)" :disabled="index === 0 && imageSlots.length === 1">🗑️ Xóa</button>
             </div>
           </div>
         </template>
       </div>
     </div>
 
-    <!-- NÚT TẠO ẢNH -->
     <div class="submit-section">
-      <button class="btn-generate" :disabled="loading" @click="generateImage()" 
-              x-text="loading ? '⏳ Đang xử lý...' : '🚀 Tạo Ảnh'"></button>
+      <button class="btn-generate" :disabled="loading" @click="generateImage()">
+        <template x-if="!loading">🚀 Tạo Ảnh</template>
+        <template x-if="loading">⏳ Đang xử lý...</template>
+      </button>
     </div>
 
-    <!-- THÔNG BÁO LỖI -->
     <div class="error-message" x-show="errorMessage" x-text="errorMessage"></div>
 
-    <!-- KẾT QUẢ -->
     <div class="results-section" x-show="results.length > 0">
       <h3>🖼️ Kết quả</h3>
       <div id="resultsGallery">
@@ -85,33 +62,14 @@
     </div>
   </div>
 
-  <!-- PANEL LỊCH SỬ -->
-  <div class="history-panel" x-data="aiAppHistory()" x-init="init()">
+  <!-- Panel lịch sử -->
+  <div class="history-panel" x-data="aiAppHistory()">
     <h3>🕒 Lịch sử ảnh (tự xóa sau 24h)</h3>
     <div id="historyList">
       <template x-for="(item, index) in history" :key="index">
-        <img :src="item.url" class="result-thumb" @click="window.openModal(item.url)">
-      </template>
-      <template x-if="history.length === 0">
-        <p class="empty-history">Không có ảnh trong 24h qua.</p>
+        <img :src="item.url" class="result-thumb" @click="openModal(item.url)">
       </template>
     </div>
   </div>
-
-  <!-- POPUP XEM ẢNH -->
-  <template x-if="modalImage">
-    <div class="modal" @click.self="closeModal()">
-      <span class="close" @click="closeModal()">&times;</span>
-      <img class="modal-content" :src="modalImage" />
-      <a class="download-btn" :href="modalImage" download target="_blank">Tải ảnh về</a>
-    </div>
-  </template>
-
-  <!-- ✅ Debug log -->
-  <script>
-    document.addEventListener('alpine:init', () => {
-      console.log('✅ Alpine đã sẵn sàng và nhận diện app!');
-    });
-  </script>
 </body>
 </html>
