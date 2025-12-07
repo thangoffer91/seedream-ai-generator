@@ -11,6 +11,7 @@ function aiApp() {
 
     init() {
       this.addImageSlot();
+      console.log('✅ Alpine App initialized');
     },
 
     addImageSlot() {
@@ -69,12 +70,10 @@ function aiApp() {
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
         const imageUrl = data.imageUrl || data.fifeUrl || data.url;
-
         if (!imageUrl) throw new Error('Không nhận được URL ảnh từ server');
 
         this.results.unshift(imageUrl);
         saveHistory(imageUrl);
-
       } catch (err) {
         console.error(err);
         this.showError(err.message);
@@ -93,13 +92,12 @@ function aiApp() {
   };
 }
 
-// Lưu lịch sử ảnh (dùng localStorage)
 function aiAppHistory() {
   return {
     history: loadHistory(),
     openModal(url) {
       const app = Alpine.store('main');
-      app.modalImage = url;
+      if (app) app.modalImage = url;
     }
   };
 }
@@ -118,3 +116,5 @@ function loadHistory() {
     return [];
   }
 }
+
+console.log('✅ ai-app.js loaded');
