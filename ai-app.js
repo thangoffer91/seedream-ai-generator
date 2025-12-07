@@ -118,3 +118,7 @@ function loadHistory() {
 }
 
 console.log('✅ ai-app.js loaded');
+
+// 👇 THÊM HAI DÒNG NÀY Ở CUỐI FILE
+window.aiApp = aiApp;
+window.aiAppHistory = aiAppHistory;
