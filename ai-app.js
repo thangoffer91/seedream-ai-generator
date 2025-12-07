@@ -74,8 +74,9 @@ function aiApp() {
       return this.imageSlots.some(s => s.file);
     },
     
+    // FIX #2: Không bắt buộc phải có ảnh
     get canGenerate() {
-      return !this.loading && this.prompt.trim() && this.hasImages;
+      return !this.loading && this.prompt.trim().length > 0;
     },
     
     // Lifecycle
@@ -97,11 +98,14 @@ function aiApp() {
       });
     },
     
-    // FIX: Trigger file input bằng cách truyền $event.target
     triggerFileInput(event) {
-      const button = event.target;
-      const fileInput = button.nextElementSibling;
-      if (fileInput && fileInput.type === 'file') {
+      const button = event.target.closest('button');
+      if (!button) return;
+      
+      const container = button.parentElement;
+      const fileInput = container.querySelector('input[type="file"]');
+      
+      if (fileInput) {
         fileInput.click();
       }
     },
@@ -137,13 +141,20 @@ function aiApp() {
       }
     },
     
+    // FIX #1: Reassign array để trigger reactivity [web:11][web:12]
     deleteImageSlot(id) {
-      this.imageSlots = this.imageSlots.filter(s => s.id !== id);
+      console.log('Deleting slot:', id);
+      const newSlots = this.imageSlots.filter(s => s.id !== id);
+      
+      // FIX: Reassign array thay vì mutate để trigger Alpine reactivity
+      this.imageSlots = newSlots.length > 0 ? newSlots : [];
       
       // Always keep at least one slot
       if (this.imageSlots.length === 0) {
         this.addImageSlot();
       }
+      
+      console.log('Slots after delete:', this.imageSlots.length);
     },
     
     // File Utilities
@@ -169,14 +180,19 @@ function aiApp() {
       this.errorMessage = "";
       
       try {
+        // FIX #2: Cho phép gửi request không cần ảnh
         const uploadedSlots = this.imageSlots.filter(s => s.file);
-        const images = await Promise.all(
-          uploadedSlots.map(async (slot) => ({
-            base64: await this.fileToBase64(slot.file),
-            filename: slot.file.name,
-            mimetype: slot.file.type,
-          }))
-        );
+        
+        let images = [];
+        if (uploadedSlots.length > 0) {
+          images = await Promise.all(
+            uploadedSlots.map(async (slot) => ({
+              base64: await this.fileToBase64(slot.file),
+              filename: slot.file.name,
+              mimetype: slot.file.type,
+            }))
+          );
+        }
         
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
@@ -188,7 +204,7 @@ function aiApp() {
           },
           body: JSON.stringify({ 
             prompt: this.prompt.trim(), 
-            images 
+            images: images // Có thể là array rỗng
           }),
           signal: controller.signal
         });
@@ -211,7 +227,7 @@ function aiApp() {
         
         // Reset form
         this.prompt = "";
-        this.imageSlots = [];
+        this.imageSlots = []; // Reset array
         this.addImageSlot();
         
         console.log('✅ Image generated successfully');
@@ -321,25 +337,26 @@ window.addEventListener("DOMContentLoaded", () => {
         x-model="prompt" 
         placeholder="Mô tả ảnh bạn muốn tạo..."
         :disabled="loading"
+        rows="3"
       ></textarea>
 
       <!-- Image Slots -->
       <div class="image-slots-container">
         <button class="add-image-btn" @click="addImageSlot()" :disabled="loading">
-          ➕ Thêm ảnh
+          ➕ Thêm ảnh (tùy chọn)
         </button>
         
         <template x-for="slot in imageSlots" :key="slot.id">
           <div class="image-item">
             <div class="image-preview">
               <template x-if="slot.loading">
-                <span>Đang tải...</span>
+                <span class="loading-text">⏳ Đang tải...</span>
               </template>
               <template x-if="!slot.loading && slot.preview">
                 <img :src="slot.preview" :alt="slot.file?.name" />
               </template>
               <template x-if="!slot.loading && !slot.preview">
-                <span>Chưa chọn ảnh</span>
+                <span class="placeholder-text">📷 Chưa chọn</span>
               </template>
             </div>
             
@@ -348,6 +365,7 @@ window.addEventListener("DOMContentLoaded", () => {
                 class="btn-upload" 
                 @click="triggerFileInput($event)"
                 :disabled="loading"
+                type="button"
               >
                 📁 Chọn ảnh
               </button>
@@ -360,7 +378,8 @@ window.addEventListener("DOMContentLoaded", () => {
               <button 
                 class="btn-delete" 
                 @click="deleteImageSlot(slot.id)"
-                :disabled="loading || imageSlots.length === 1"
+                :disabled="loading"
+                type="button"
               >
                 🗑️ Xóa
               </button>
@@ -374,6 +393,7 @@ window.addEventListener("DOMContentLoaded", () => {
         class="btn-generate" 
         @click="generateImage()" 
         :disabled="!canGenerate"
+        type="button"
       >
         <template x-if="loading">
           <span><span class="loading-spinner"></span>Đang xử lý...</span>
@@ -402,13 +422,13 @@ window.addEventListener("DOMContentLoaded", () => {
 
     <!-- History Panel -->
     <div class="history-panel" x-data="aiAppHistory()" x-cloak>
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h3>🕒 Lịch sử ảnh</h3>
+      <div class="history-header">
+        <h3>🕒 Lịch sử</h3>
         <button 
           x-show="hasHistory" 
           @click="clearHistory()" 
-          class="btn-delete"
-          style="padding: 6px 12px; font-size: 12px;"
+          class="btn-clear-history"
+          type="button"
         >
           Xóa tất cả
         </button>
@@ -416,7 +436,7 @@ window.addEventListener("DOMContentLoaded", () => {
       
       <template x-if="!hasHistory">
         <div class="empty-state">
-          <p>Chưa có ảnh nào được tạo</p>
+          <p>Chưa có ảnh</p>
         </div>
       </template>
       
@@ -463,7 +483,6 @@ window.addEventListener("DOMContentLoaded", () => {
     </div>
   `;
   
-  // FIX: Kiểm tra Alpine đã tồn tại chưa trước khi start
   if (typeof Alpine !== 'undefined' && !Alpine.version) {
     Alpine.start();
     console.log("✅ Alpine running - App ready!");
