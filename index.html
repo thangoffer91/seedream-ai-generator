@@ -57,7 +57,7 @@
         </div>
       </div>
       
-      <!-- Image Upload Slots -->
+      <!-- Image Upload Slots (FIXED) -->
       <div class="image-slots-container">
         <template x-for="(slot, index) in imageSlots" :key="index">
           <div class="image-item">
@@ -79,7 +79,7 @@
               </template>
             </div>
             <div class="image-actions">
-              <button class="btn-upload" @click="$refs['fileInput' + index].click()">
+              <button class="btn-upload" @click="triggerFileInput(index)">
                 📤 Chọn ảnh
               </button>
               <button class="btn-delete" @click="deleteImage(index)" :disabled="!slot.file">
@@ -87,7 +87,7 @@
               </button>
             </div>
             <input 
-              :ref="'fileInput' + index"
+              :id="'fileInput-' + index"
               type="file" 
               accept="image/*" 
               @change="handleFileSelect($event, index)" 
