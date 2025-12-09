@@ -5,7 +5,7 @@ const CONFIG = {
   WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
-  REQUEST_TIMEOUT: 150000,
+  REQUEST_TIMEOUT: 150000, // 2.5 phút
   MAX_HISTORY_ITEMS: 50,
   HISTORY_EXPIRY: 24 * 60 * 60 * 1000,
   MAX_IMAGE_DIMENSION: 1920,
@@ -390,8 +390,7 @@ function appData() {
           method: 'POST',
           body: formData,
           signal: controller.signal,
-          // Keep-alive settings (NEW FEATURE 4)
-          keepalive: true
+          keepalive: true // NEW FEATURE 4
         });
 
         clearTimeout(timeoutId);
@@ -403,43 +402,44 @@ function appData() {
         const result = await response.json();
         console.log('✅ Response:', result);
 
-        if (result.images && result.images.length > 0) {
-          this.results = result.images.map(url => ({ 
-            url, 
-            prompt: currentPrompt, // Store prompt (NEW FEATURE 2)
+        // FIX: Backend trả về { imageUrl: "..." } chứ không phải { images: [...] }
+        if (result.imageUrl) {
+          // Chuyển về dạng array để xử lý thống nhất
+          this.results = [{ 
+            url: result.imageUrl, 
+            prompt: currentPrompt,
             aspectRatio: this.aspectRatio,
             timestamp: new Date().toISOString()
-          }));
+          }];
           
           // Save to history with prompt
-          result.images.forEach(url => {
-            const historyItem = historyManager.save({ 
-              url, 
-              prompt: currentPrompt, // Store prompt in history
-              aspectRatio: this.aspectRatio
-            });
-            this.history.unshift(historyItem);
+          const historyItem = historyManager.save({ 
+            url: result.imageUrl, 
+            prompt: currentPrompt,
+            aspectRatio: this.aspectRatio
           });
+          this.history.unshift(historyItem);
           
           if (this.history.length > CONFIG.MAX_HISTORY_ITEMS) {
             this.history = this.history.slice(0, CONFIG.MAX_HISTORY_ITEMS);
           }
           
-          this.showSuccess(`✨ Tạo thành công ${result.images.length} ảnh!`);
+          this.showSuccess(`✨ Tạo ảnh thành công!`);
           
           // Show notification if tab is hidden (NEW FEATURE 4)
           if (document.hidden) {
             showNotification(
               '✅ Tạo ảnh thành công!',
-              `Đã tạo xong ${result.images.length} ảnh từ prompt: "${currentPrompt.slice(0, 50)}..."`,
+              `Đã tạo xong ảnh từ prompt: "${currentPrompt.slice(0, 50)}..."`,
               '🎨'
             );
           }
           
           // NEW FEATURE 3: Keep prompt and images instead of clearing
-          // Removed: this.prompt = ''; 
-          // Removed: this.clearAllImages();
           
+        } else if (result.error) {
+          // Xử lý lỗi từ backend
+          throw new Error(result.error);
         } else {
           throw new Error('Không nhận được ảnh từ server');
         }
@@ -448,7 +448,7 @@ function appData() {
         console.error('❌ Error:', error);
         
         if (error.name === 'AbortError') {
-          this.showError('⏱️ Timeout: Quá trình tạo ảnh mất quá nhiều thời gian');
+          this.showError('⏱️ Timeout: Quá trình tạo ảnh mất quá nhiều thời gian (>2.5 phút)');
         } else {
           this.showError('❌ Lỗi: ' + error.message);
         }
