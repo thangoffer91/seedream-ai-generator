@@ -3,7 +3,7 @@ console.log("🚀 AI App initializing...");
 // ===== CONFIGURATION =====
 const CONFIG = {
   WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
-  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB per file
   MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
   REQUEST_TIMEOUT: 150000,
   MAX_HISTORY_ITEMS: 50,
@@ -13,7 +13,31 @@ const CONFIG = {
   RATE_LIMIT_DELAY: 2000,
 };
 
-// ===== UTIL =====
+// ===== SECURITY & ANALYTICS =====
+class SecurityMonitor {
+  constructor() {
+    this.requestCount = 0;
+    this.lastRequestTime = 0;
+    this.suspiciousActivity = [];
+  }
+
+  sanitizePrompt(prompt) {
+    return prompt
+      .trim()
+      .replace(/[<>]/g, "")
+      .slice(0, 2000);
+  }
+
+  trackRequest() {
+    const now = Date.now();
+    this.requestCount++;
+    this.lastRequestTime = now;
+  }
+}
+
+const security = new SecurityMonitor();
+
+// ===== HELPER =====
 function uuid() {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
 }
@@ -22,13 +46,12 @@ function formatTime(date) {
   return new Date(date).toLocaleString("vi-VN");
 }
 
-// ===== MAIN APP (Alpine) =====
+// ===== MAIN APP =====
 function aiApp() {
   return {
-    // STATE
+    // STATE GỐC
     prompt: "",
     negativePrompt: "",
-    aspectRatio: "landscape",
     imageSlots: [],
     isGenerating: false,
     elapsedTime: "",
@@ -40,13 +63,15 @@ function aiApp() {
     showModal: false,
     selectedResult: null,
 
+    // THÊM MỚI
+    aspectRatio: "landscape",
+
     get hasAnyImage() {
       return this.imageSlots.some(s => !!s.file);
     },
 
-    // INIT
     init() {
-      this.addImageSlot(); // ít nhất 1 slot
+      this.addImageSlot();
       this.loadHistory();
       this.loadResults();
     },
@@ -94,20 +119,25 @@ function aiApp() {
     // GENERATE
     async generateImage() {
       if (this.isGenerating) return;
-      if (!this.prompt.trim()) {
-        this.showError("Vui lòng nhập prompt.");
+      const cleanPrompt = security.sanitizePrompt(this.prompt);
+      if (!cleanPrompt) {
+        this.showError("Vui lòng nhập prompt hợp lệ.");
         return;
       }
 
+      this.prompt = cleanPrompt;
       this.errorMessage = "";
       this.successMessage = "";
       this.isGenerating = true;
       this.startTimer();
+      security.trackRequest();
 
       try {
         const formData = new FormData();
         formData.append("prompt", this.prompt);
         formData.append("negative_prompt", this.negativePrompt || "");
+
+        // THÊM: gửi aspect_ratio
         formData.append("aspect_ratio", this.aspectRatio);
 
         this.imageSlots.forEach((slot, idx) => {
@@ -134,8 +164,7 @@ function aiApp() {
 
         const data = await res.json();
 
-        // data.image_url hoặc tương tự tùy webhook của bạn
-        const imageUrl = data.image_url || data.url || "";
+        const imageUrl = data.image_url || data.url || data.result_url || "";
         if (!imageUrl) {
           throw new Error("Webhook không trả về URL ảnh hợp lệ.");
         }
@@ -145,7 +174,7 @@ function aiApp() {
           imageUrl,
           prompt: this.prompt,
           negative_prompt: this.negativePrompt,
-          aspect_ratio: this.aspectRatio,
+          aspect_ratio: this.aspectRatio, // THÊM
           created_at: Date.now(),
         };
 
@@ -165,7 +194,10 @@ function aiApp() {
       } finally {
         this.isGenerating = false;
         this.stopTimer();
-        // KHÔNG CLEAR FORM: giữ nguyên prompt + ảnh
+        // GIỮ FORM, KHÔNG CLEAR:
+        // this.prompt = "";
+        // this.negativePrompt = "";
+        // this.imageSlots = [];
       }
     },
 
@@ -175,7 +207,7 @@ function aiApp() {
         id: uuid(),
         prompt: this.prompt,
         negative_prompt: this.negativePrompt,
-        aspect_ratio: this.aspectRatio,
+        aspect_ratio: this.aspectRatio, // THÊM
         time: formatTime(Date.now()),
         created_at: Date.now(),
       };
@@ -251,8 +283,8 @@ function aiApp() {
     },
 
     // MODAL
-    openPreview(item) {
-      this.selectedResult = item;
+    openPreview(result) {
+      this.selectedResult = result;
       this.showModal = true;
     },
 
@@ -279,7 +311,7 @@ function aiApp() {
       this.imageSlots.forEach((slot, idx) => this.clearImageSlot(idx));
     },
 
-    // MESSAGE
+    // MESSAGES
     showError(msg) {
       this.errorMessage = msg;
       setTimeout(() => {
