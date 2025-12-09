@@ -13,12 +13,11 @@ const CONFIG = {
   RATE_LIMIT_DELAY: 2000,
 };
 
-// ===== NEW FEATURE 4: NOTIFICATION PERMISSION =====
+// ===== NEW FEATURE 4: NOTIFICATION & WAKE LOCK =====
 if ('Notification' in window && Notification.permission === 'default') {
   Notification.requestPermission();
 }
 
-// ===== NEW FEATURE 4: WAKE LOCK API =====
 let wakeLock = null;
 
 async function requestWakeLock() {
@@ -46,14 +45,12 @@ async function releaseWakeLock() {
   }
 }
 
-// ===== NEW FEATURE 4: SHOW NOTIFICATION =====
 function showNotification(title, body, icon = '🎨') {
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
       new Notification(title, {
         body: body,
         icon: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${icon}</text></svg>`,
-        badge: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${icon}</text></svg>`,
         tag: 'ai-image-generator',
         requireInteraction: false
       });
@@ -63,7 +60,7 @@ function showNotification(title, body, icon = '🎨') {
   }
 }
 
-// ===== SECURITY & ANALYTICS (FROM ORIGINAL) =====
+// ===== SECURITY & ANALYTICS (100% FROM ORIGINAL) =====
 class SecurityMonitor {
   constructor() {
     this.requestCount = 0;
@@ -97,7 +94,7 @@ class SecurityMonitor {
 
 const security = new SecurityMonitor();
 
-// ===== IMAGE PROCESSING (FROM ORIGINAL) =====
+// ===== IMAGE PROCESSING (100% FROM ORIGINAL) =====
 class ImageProcessor {
   static async compressImage(file, maxDimension = CONFIG.MAX_IMAGE_DIMENSION, quality = CONFIG.COMPRESSION_QUALITY) {
     return new Promise((resolve, reject) => {
@@ -160,7 +157,7 @@ class ImageProcessor {
   }
 }
 
-// ===== HISTORY MANAGER (FROM ORIGINAL) =====
+// ===== HISTORY MANAGER (100% FROM ORIGINAL) =====
 class HistoryManager {
   constructor() {
     this.storageKey = 'aiImageHistory';
@@ -234,7 +231,7 @@ const historyManager = new HistoryManager();
 function appData() {
   return {
     prompt: '',
-    aspectRatio: '16:9', // NEW FEATURE 1 (chỉ để UI hiển thị)
+    aspectRatio: '16:9', // NEW FEATURE 1
     imageSlots: [{ file: null, preview: null, loading: false, size: null }],
     results: [],
     history: [],
@@ -252,7 +249,7 @@ function appData() {
       console.log('✅ App initialized');
       this.loadHistory();
       
-      // NEW FEATURE 4: Visibility change handler
+      // NEW FEATURE 4
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           console.log('🌙 Tab hidden - keeping request alive');
@@ -266,8 +263,6 @@ function appData() {
       const fileInput = document.getElementById('fileInput-' + index);
       if (fileInput) {
         fileInput.click();
-      } else {
-        console.error('File input not found for index:', index);
       }
     },
 
@@ -330,7 +325,7 @@ function appData() {
       });
     },
 
-    // NEW FEATURE 3: Clear All
+    // NEW FEATURE 3
     clearAll() {
       if (confirm('Bạn có chắc muốn xóa tất cả prompt và ảnh?')) {
         this.prompt = '';
@@ -345,7 +340,7 @@ function appData() {
       }
     },
 
-    // FROM ORIGINAL: Convert file to DataURL
+    // 100% FROM ORIGINAL CODE
     fileToDataURL(file) {
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -355,13 +350,12 @@ function appData() {
       });
     },
 
-    // FROM ORIGINAL: Convert file to base64
     async fileToBase64(file) {
       const dataURL = await this.fileToDataURL(file);
       return dataURL.split(",")[1];
     },
 
-    // 100% LOGIC FROM ORIGINAL CODE + 4 NEW FEATURES
+    // 100% FROM ORIGINAL + NEW FEATURES
     async generateImage() {
       if (this.isGenerating) return;
       if (!this.prompt.trim()) {
@@ -375,17 +369,16 @@ function appData() {
       }
 
       const sanitizedPrompt = security.sanitizePrompt(this.prompt);
-      const currentPrompt = sanitizedPrompt; // NEW FEATURE 2: Store for modal
+      const currentPrompt = sanitizedPrompt; // NEW: Store for modal
 
       this.isGenerating = true;
       this.errorMessage = '';
       this.successMessage = '';
       this.elapsedTime = 0;
 
-      // NEW FEATURE 4: Request Wake Lock
+      // NEW FEATURE 4
       await requestWakeLock();
 
-      // Start timer
       this.timerInterval = setInterval(() => {
         this.elapsedTime++;
       }, 1000);
@@ -393,7 +386,7 @@ function appData() {
       const startTime = Date.now();
 
       try {
-        // FROM ORIGINAL: Get uploaded images
+        // 100% FROM ORIGINAL
         const uploadedSlots = this.imageSlots.filter(s => s.file);
         
         let images = [];
@@ -409,13 +402,14 @@ function appData() {
 
         security.logActivity('Generate request', { 
           prompt: sanitizedPrompt,
+          aspectRatio: this.aspectRatio, // NEW: Log aspect ratio
           imageCount: images.length
         });
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-        // FROM ORIGINAL: Fetch exactly like original code
+        // FIX: THÊM aspectRatio VÀO REQUEST BODY
         const response = await fetch(CONFIG.WEBHOOK_URL, {
           method: "POST",
           headers: { 
@@ -423,7 +417,8 @@ function appData() {
           },
           body: JSON.stringify({ 
             prompt: sanitizedPrompt, 
-            images: images
+            images: images,
+            aspectRatio: this.aspectRatio // ← NEW: GỬI ASPECT RATIO LÊN BACKEND
           }),
           signal: controller.signal
         });
@@ -434,7 +429,7 @@ function appData() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        // FROM ORIGINAL: Parse response
+        // 100% FROM ORIGINAL
         const data = await response.json();
         const imageUrl = data.imageUrl || data.url || data.fileUrl;
 
@@ -442,16 +437,18 @@ function appData() {
           throw new Error("Không nhận được URL ảnh từ server");
         }
 
-        // NEW FEATURE 2: Store with prompt for modal display
+        // NEW: Store with prompt and aspectRatio
         this.results = [{
           url: imageUrl,
-          prompt: currentPrompt, // Store prompt
+          prompt: currentPrompt,
+          aspectRatio: this.aspectRatio,
           timestamp: new Date().toISOString()
         }];
 
         const historyItem = historyManager.save({ 
           url: imageUrl,
-          prompt: currentPrompt // Store prompt in history
+          prompt: currentPrompt,
+          aspectRatio: this.aspectRatio
         });
         this.history.unshift(historyItem);
 
@@ -463,7 +460,7 @@ function appData() {
 
         this.showSuccess(`✅ Tạo ảnh thành công trong ${(duration / 1000).toFixed(2)}s`);
 
-        // NEW FEATURE 4: Show notification if tab is hidden
+        // NEW FEATURE 4
         if (document.hidden) {
           showNotification(
             '✅ Tạo ảnh thành công!',
@@ -472,20 +469,13 @@ function appData() {
           );
         }
 
-        // NEW FEATURE 3: KHÔNG xóa prompt và images (comment out code gốc)
-        // ORIGINAL CODE HAD:
-        // this.prompt = "";
-        // this.imageSlots = [];
-        // this.addImageSlot();
+        // NEW FEATURE 3: KHÔNG xóa prompt và images
+        // Code gốc có: this.prompt = ""; this.imageSlots = [];
         
-        // NOW: Keep prompt and images for user to edit/regenerate
-
         console.log('✅ Image generated successfully');
 
       } catch (error) {
         console.error('Generation error:', error);
-
-        const duration = Date.now() - startTime;
 
         if (error.name === 'AbortError') {
           this.showError("❌ Timeout - Server không phản hồi sau 150 giây");
@@ -495,26 +485,20 @@ function appData() {
           this.showError("❌ " + error.message);
         }
 
-        // NEW FEATURE 4: Show error notification if tab is hidden
+        // NEW FEATURE 4
         if (document.hidden) {
-          showNotification(
-            '❌ Lỗi khi tạo ảnh',
-            error.message,
-            '⚠️'
-          );
+          showNotification('❌ Lỗi khi tạo ảnh', error.message, '⚠️');
         }
 
       } finally {
         this.isGenerating = false;
         clearInterval(this.timerInterval);
         this.elapsedTime = 0;
-
-        // NEW FEATURE 4: Release Wake Lock
         await releaseWakeLock();
       }
     },
 
-    // NEW FEATURE 2: Show modal with prompt
+    // NEW FEATURE 2
     showModal(result) {
       this.modalImage = result.url;
       this.modalPrompt = result.prompt || '';
@@ -530,7 +514,6 @@ function appData() {
       document.body.style.overflow = '';
     },
 
-    // NEW FEATURE 2: Copy prompt function
     async copyPrompt() {
       try {
         await navigator.clipboard.writeText(this.modalPrompt);
