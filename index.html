@@ -1,46 +1,147 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-  <meta name="theme-color" content="#0e1117" />
-  <meta name="description" content="AI Image Generator - Tạo ảnh bằng AI với Midjourney style" />
-  
-  <title>🎨 AI Image Generator — Midjourney Style</title>
-  
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json" />
-  
-  <!-- Favicon inline SVG -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230e1117' width='100' height='100'/%3E%3Ctext x='50' y='70' font-size='60' text-anchor='middle'%3E🎨%3C/text%3E%3C/svg%3E" />
-  
-  <!-- Preconnect -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="dns-prefetch" href="https://rasp.nthang91.io.vn" />
-  
-  <link rel="stylesheet" href="style.css" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Generator</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 </head>
+<body class="dark" x-data="aiApp()">
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
 
-<body class="dark">
-  <div id="app-root" class="app-layout"></div>
+    <div class="app-layout">
+        <!-- Main Container -->
+        <div class="container">
+            <h1>🎨 AI Image Generator</h1>
+            
+            <!-- Success/Error Messages -->
+            <template x-if="successMessage">
+                <div class="success-message" x-text="successMessage" x-transition></div>
+            </template>
+            <template x-if="errorMessage">
+                <div class="error-message" x-text="errorMessage" x-transition></div>
+            </template>
 
-  <!-- AlpineJS -->
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
-  <script src="ai-app.js"></script>
-  
-  <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('sw.js')
-          .then(reg => {
-            console.log('✅ Service Worker registered:', reg.scope);
-          })
-          .catch(err => {
-            console.log('❌ Service Worker registration failed:', err);
-          });
-      });
-    }
-  </script>
+            <!-- Prompt Input -->
+            <div class="input-group">
+                <label>Prompt (Mô tả ảnh):</label>
+                <textarea 
+                    x-model="prompt" 
+                    placeholder="Mô tả chi tiết ảnh bạn muốn tạo..."
+                    @keydown.enter.exact.prevent="generateImages"
+                    rows="3"
+                ></textarea>
+            </div>
+
+            <!-- Aspect Ratio Selector -->
+            <div class="input-group">
+                <label>Khung ảnh:</label>
+                <div class="aspect-ratio-buttons">
+                    <button 
+                        type="button"
+                        :class="['aspect-btn', selectedAspect === 'landscape' ? 'aspect-btn-active' : '']"
+                        @click="selectedAspect = 'landscape'"
+                    >
+                        📱 Ngang (16:9)
+                    </button>
+                    <button 
+                        type="button"
+                        :class="['aspect-btn', selectedAspect === 'portrait' ? 'aspect-btn-active' : '']"
+                        @click="selectedAspect = 'portrait'"
+                    >
+                        📱 Dọc (9:16)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Image Upload -->
+            <div class="image-slots-container">
+                <template x-for="(image, index) in images" :key="image.id">
+                    <div class="image-item">
+                        <div class="image-preview">
+                            <img :src="image.url" :alt="image.name" @load="onImageLoad($event, index)">
+                            <span class="image-size-badge" x-show="!image.loaded">
+                                <span class="loading-spinner"></span> Đang tải...
+                            </span>
+                            <span class="image-size-badge" x-show="image.loaded" x-text="formatFileSize(image.size)"></span>
+                        </div>
+                        <div class="image-actions">
+                            <button class="btn-upload" @click="removeImage(index)">🗑️ Xóa</button>
+                        </div>
+                    </div>
+                </template>
+                <button class="add-image-btn" @click="addImage()">
+                    📁 Thêm ảnh tham khảo
+                </button>
+            </div>
+
+            <!-- Generate Button -->
+            <button 
+                class="btn-generate" 
+                :disabled="!canGenerate || isGenerating"
+                @click="generateImages"
+            >
+                <span x-show="!isGenerating">✨ Tạo ảnh</span>
+                <span x-show="isGenerating">
+                    <span class="loading-spinner"></span>
+                    <span class="timer-badge" x-text="formatTimer()"></span>
+                </span>
+            </button>
+        </div>
+
+        <!-- Results -->
+        <div class="results-section" x-show="results.length > 0">
+            <h3>Kết quả:</h3>
+            <div class="results-grid">
+                <template x-for="(result, index) in results" :key="result.id">
+                    <img 
+                        class="result-thumb" 
+                        :src="result.url"
+                        :alt="`Generated image ${index + 1}`"
+                        :data-prompt="result.prompt"
+                        @click="openModal(result.url, result.prompt)"
+                        @load="onResultLoad($event)"
+                    >
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal" x-show="showModal" x-transition:enter="transitionIn" x-transition:leave="transitionOut" @click.away="closeModal()">
+        <div class="modal-overlay"></div>
+        <div class="modal-content-box" @click.stop>
+            <button class="close-btn" @click="closeModal()">×</button>
+            
+            <!-- Image -->
+            <img :src="modalImage" class="modal-image" alt="Full size image">
+            
+            <!-- Prompt -->
+            <div class="modal-prompt-section">
+                <label>Prompt đã sử dụng:</label>
+                <div class="prompt-container">
+                    <textarea readonly :value="modalPrompt" rows="4" class="prompt-textarea"></textarea>
+                    <button class="copy-btn" @click="copyPrompt" title="Copy prompt">📋</button>
+                </div>
+            </div>
+            
+            <!-- Download -->
+            <a :href="modalImage" class="download-btn" download @click="closeModal()">
+                💾 Tải ảnh
+            </a>
+        </div>
+    </div>
+
+    <!-- Hidden file input -->
+    <input type="file" ref="fileInput" accept="image/*" multiple style="display: none;" @change="handleFiles">
+
+    <script src="ai-app.js"></script>
 </body>
 </html>
