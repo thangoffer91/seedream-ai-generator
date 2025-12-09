@@ -1,143 +1,210 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" class="dark">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Image Generator</title>
-    <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>AI Image Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+  <script defer src="ai-app.js"></script>
 </head>
-<body class="dark" x-data="aiApp()">
-    <!-- Service Worker Registration -->
+<body class="dark" x-data="aiApp()" x-init="init()" x-cloak>
+  <div class="app-layout">
+    <!-- LEFT: MAIN FORM -->
+    <div class="container">
+      <h1>AI Image Generator</h1>
 
+      <!-- MESSAGES -->
+      <template x-if="errorMessage">
+        <div class="error-message" x-text="errorMessage"></div>
+      </template>
+      <template x-if="successMessage">
+        <div class="success-message" x-text="successMessage"></div>
+      </template>
 
-    <div class="app-layout">
-        <!-- Main Container -->
-        <div class="container">
-            <h1>🎨 AI Image Generator</h1>
-            
-            <!-- Success/Error Messages -->
-            <template x-if="successMessage">
-                <div class="success-message" x-text="successMessage" x-transition></div>
-            </template>
-            <template x-if="errorMessage">
-                <div class="error-message" x-text="errorMessage" x-transition></div>
-            </template>
+      <!-- PROMPT -->
+      <div class="form-group">
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" x-model="prompt" placeholder="Nhập prompt để tạo ảnh..."></textarea>
+      </div>
 
-            <!-- Prompt Input -->
-            <div class="input-group">
-                <label>Prompt (Mô tả ảnh):</label>
-                <textarea 
-                    x-model="prompt" 
-                    placeholder="Mô tả chi tiết ảnh bạn muốn tạo..."
-                    @keydown.enter.exact.prevent="generateImages"
-                    rows="3"
-                ></textarea>
-            </div>
+      <!-- NEGATIVE PROMPT -->
+      <div class="form-group">
+        <label for="negativePrompt">Negative prompt (tuỳ chọn)</label>
+        <textarea id="negativePrompt" x-model="negativePrompt" placeholder="Những thứ không muốn xuất hiện..."></textarea>
+      </div>
 
-            <!-- Aspect Ratio Selector -->
-            <div class="input-group">
-                <label>Khung ảnh:</label>
-                <div class="aspect-ratio-buttons">
-                    <button 
-                        type="button"
-                        :class="['aspect-btn', selectedAspect === 'landscape' ? 'aspect-btn-active' : '']"
-                        @click="selectedAspect = 'landscape'"
-                    >
-                        📱 Ngang (16:9)
-                    </button>
-                    <button 
-                        type="button"
-                        :class="['aspect-btn', selectedAspect === 'portrait' ? 'aspect-btn-active' : '']"
-                        @click="selectedAspect = 'portrait'"
-                    >
-                        📱 Dọc (9:16)
-                    </button>
-                </div>
-            </div>
-
-            <!-- Image Upload -->
-            <div class="image-slots-container">
-                <template x-for="(image, index) in images" :key="image.id">
-                    <div class="image-item">
-                        <div class="image-preview">
-                            <img :src="image.url" :alt="image.name" @load="onImageLoad($event, index)">
-                            <span class="image-size-badge" x-show="!image.loaded">
-                                <span class="loading-spinner"></span> Đang tải...
-                            </span>
-                            <span class="image-size-badge" x-show="image.loaded" x-text="formatFileSize(image.size)"></span>
-                        </div>
-                        <div class="image-actions">
-                            <button class="btn-upload" @click="removeImage(index)">🗑️ Xóa</button>
-                        </div>
-                    </div>
-                </template>
-                <button class="add-image-btn" @click="addImage()">
-                    📁 Thêm ảnh tham khảo
-                </button>
-            </div>
-
-            <!-- Generate Button -->
-            <button 
-                class="btn-generate" 
-                :disabled="!canGenerate || isGenerating"
-                @click="generateImages"
-            >
-                <span x-show="!isGenerating">✨ Tạo ảnh</span>
-                <span x-show="isGenerating">
-                    <span class="loading-spinner"></span>
-                    <span class="timer-badge" x-text="formatTimer()"></span>
-                </span>
-            </button>
+      <!-- ASPECT RATIO -->
+      <div class="form-group">
+        <label>Khung ảnh</label>
+        <div class="aspect-options">
+          <label class="aspect-option">
+            <input type="radio" name="aspect_ratio" value="landscape" x-model="aspectRatio" />
+            <span>Ngang (16:9)</span>
+          </label>
+          <label class="aspect-option">
+            <input type="radio" name="aspect_ratio" value="portrait" x-model="aspectRatio" />
+            <span>Dọc (9:16)</span>
+          </label>
         </div>
+      </div>
 
-        <!-- Results -->
-        <div class="results-section" x-show="results.length > 0">
-            <h3>Kết quả:</h3>
-            <div class="results-grid">
-                <template x-for="(result, index) in results" :key="result.id">
-                    <img 
-                        class="result-thumb" 
-                        :src="result.url"
-                        :alt="`Generated image ${index + 1}`"
-                        :data-prompt="result.prompt"
-                        @click="openModal(result.url, result.prompt)"
-                        @load="onResultLoad($event)"
-                    >
-                </template>
+      <!-- IMAGE UPLOAD SLOTS -->
+      <div class="image-slots-container">
+        <template x-for="(imageSlot, index) in imageSlots" :key="imageSlot.id">
+          <div class="image-item">
+            <div class="image-preview">
+              <template x-if="imageSlot.previewUrl">
+                <img :src="imageSlot.previewUrl" alt="Preview" />
+              </template>
+              <template x-if="!imageSlot.previewUrl">
+                <span class="placeholder-text">Chưa có ảnh. Nhấn "Chọn ảnh" để tải lên.</span>
+              </template>
+              <template x-if="imageSlot.sizeInfo">
+                <div class="image-size-badge" x-text="imageSlot.sizeInfo"></div>
+              </template>
             </div>
+
+            <div class="image-actions">
+              <button type="button" class="btn-upload" @click="$refs['fileInput' + imageSlot.id].click()">
+                Chọn ảnh
+              </button>
+              <button
+                type="button"
+                class="btn-delete"
+                @click="clearImageSlot(index)"
+                x-bind:disabled="!imageSlot.file"
+              >
+                Xoá
+              </button>
+            </div>
+
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              :ref="'fileInput' + imageSlot.id"
+              @change="handleFileChange($event, index)"
+            />
+          </div>
+        </template>
+
+        <button type="button" class="add-image-btn" @click="addImageSlot()" x-show="imageSlots.length < 3">
+          + Thêm ảnh tham chiếu
+        </button>
+      </div>
+
+      <!-- GENERATE BUTTON -->
+      <button
+        type="button"
+        class="btn-generate"
+        @click="generateImage()"
+        :disabled="isGenerating || !prompt.trim()"
+      >
+        <span x-show="isGenerating" class="loading-spinner"></span>
+        <span x-text="isGenerating ? 'Đang tạo ảnh...' : 'Tạo ảnh'"></span>
+        <span x-show="isGenerating && elapsedTime" class="timer-badge" x-text="elapsedTime"></span>
+      </button>
+
+      <!-- OPTIONAL: CLEAR FORM MANUAL -->
+      <button type="button" class="btn-clear-form" @click="clearForm()" x-show="prompt || negativePrompt || hasAnyImage">
+        Xoá form
+      </button>
+
+      <!-- RESULTS -->
+      <div class="results-section">
+        <h3>Kết quả gần đây</h3>
+        <template x-if="results.length === 0">
+          <div class="empty-state">
+            Chưa có ảnh nào được tạo.
+          </div>
+        </template>
+        <div class="results-grid" x-show="results.length > 0">
+          <template x-for="(item, idx) in results" :key="item.id">
+            <img
+              class="result-thumb"
+              :src="item.imageUrl"
+              alt="Kết quả"
+              @click="openPreview(item)"
+            />
+          </template>
         </div>
+      </div>
     </div>
 
-    <!-- Modal -->
-    <div class="modal" x-show="showModal" x-transition:enter="transitionIn" x-transition:leave="transitionOut" @click.away="closeModal()">
-        <div class="modal-overlay"></div>
-        <div class="modal-content-box" @click.stop>
-            <button class="close-btn" @click="closeModal()">×</button>
-            
-            <!-- Image -->
-            <img :src="modalImage" class="modal-image" alt="Full size image">
-            
-            <!-- Prompt -->
-            <div class="modal-prompt-section">
-                <label>Prompt đã sử dụng:</label>
-                <div class="prompt-container">
-                    <textarea readonly :value="modalPrompt" rows="4" class="prompt-textarea"></textarea>
-                    <button class="copy-btn" @click="copyPrompt" title="Copy prompt">📋</button>
-                </div>
-            </div>
-            
-            <!-- Download -->
-            <a :href="modalImage" class="download-btn" download @click="closeModal()">
-                💾 Tải ảnh
-            </a>
+    <!-- RIGHT: HISTORY -->
+    <div class="history-panel">
+      <div class="history-header">
+        <h3>Lịch sử request</h3>
+        <button type="button" class="btn-clear-history" @click="clearHistory()" x-show="history.length > 0">
+          Xoá lịch sử
+        </button>
+      </div>
+      <template x-if="history.length === 0">
+        <div class="empty-state">
+          Chưa có lịch sử nào.
         </div>
+      </template>
+      <div class="history-list" x-show="history.length > 0">
+        <template x-for="item in history" :key="item.id">
+          <div class="history-item">
+            <div class="history-prompt" x-text="item.prompt"></div>
+            <div class="history-meta">
+              <span x-text="item.time"></span>
+              <span x-text="item.aspect_ratio === 'landscape' ? 'Ngang' : 'Dọc'"></span>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
+  </div>
 
-    <!-- Hidden file input -->
-    <input type="file" ref="fileInput" accept="image/*" multiple style="display: none;" @change="handleFiles">
+  <!-- MODAL PREVIEW -->
+  <div
+    class="modal"
+    x-show="showModal"
+    x-transition
+    @keydown.escape.window="closePreview()"
+  >
+    <div class="modal-overlay" @click="closePreview()"></div>
+    <div class="modal-content-box">
+      <button class="close-btn" type="button" @click="closePreview()">×</button>
 
-    <script src="ai-app.js"></script>
+      <!-- ẢNH Ở TRÊN -->
+      <div class="modal-image-wrapper">
+        <img :src="selectedResult?.imageUrl" alt="Kết quả" class="modal-image" />
+      </div>
+
+      <!-- PROMPT Ở DƯỚI -->
+      <div class="modal-prompt">
+        <label class="modal-label">Prompt đã dùng</label>
+        <textarea
+          class="modal-prompt-text"
+          x-text="selectedResult?.prompt"
+          readonly
+          @click="$event.target.select()"
+        ></textarea>
+        <button
+          type="button"
+          class="btn-secondary mt-2"
+          @click="copyPrompt()"
+        >
+          Copy prompt
+        </button>
+      </div>
+
+      <!-- NÚT DOWNLOAD Ở CUỐI -->
+      <div class="modal-actions">
+        <a
+          :href="selectedResult?.imageUrl"
+          download="ai-image.png"
+          class="download-btn"
+        >
+          Tải ảnh
+        </a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
