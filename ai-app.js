@@ -152,6 +152,20 @@ class ImageProcessor {
     });
   }
 
+  // NEW: Convert blob to base64
+  static async blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        // Remove data:image/jpeg;base64, prefix
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   static formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -262,7 +276,6 @@ function appData() {
       });
     },
 
-    // FIX: Trigger file input với getElementById
     triggerFileInput(index) {
       const fileInput = document.getElementById('fileInput-' + index);
       if (fileInput) {
@@ -373,19 +386,25 @@ function appData() {
       const aspectRatioPrompt = `${sanitizedPrompt} --ar ${this.aspectRatio}`;
 
       try {
-        const formData = new FormData();
-        formData.append('prompt', aspectRatioPrompt);
+        // FIX: Convert images to base64 array
+        const imagesWithFiles = this.imageSlots.filter(slot => slot.file);
+        const imagesBase64 = [];
+        
+        for (const slot of imagesWithFiles) {
+          const base64 = await ImageProcessor.blobToBase64(slot.file);
+          imagesBase64.push({ base64 });
+        }
 
-        this.imageSlots.forEach((slot, index) => {
-          if (slot.file) {
-            formData.append(`image${index}`, slot.file, `image${index}.jpg`);
-          }
-        });
+        // FIX: Send JSON instead of FormData
+        const requestBody = {
+          prompt: aspectRatioPrompt,
+          images: imagesBase64
+        };
 
         security.logActivity('Generate request', { 
           prompt: sanitizedPrompt, 
           aspectRatio: this.aspectRatio,
-          imageCount: this.imageSlots.filter(s => s.file).length 
+          imageCount: imagesBase64.length
         });
 
         const controller = new AbortController();
@@ -393,7 +412,10 @@ function appData() {
 
         const response = await fetch(CONFIG.WEBHOOK_URL, {
           method: 'POST',
-          body: formData,
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody),
           signal: controller.signal,
           keepalive: true
         });
@@ -537,10 +559,10 @@ function appData() {
   };
 }
 
-// ===== SERVICE WORKER REGISTRATION =====
+// ===== SERVICE WORKER REGISTRATION (FIX 404 ERROR) =====
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('./sw.js') // Changed from '/sw.js' to './sw.js'
       .then(reg => console.log('✅ Service Worker registered'))
       .catch(err => console.warn('❌ SW registration failed:', err));
   });
