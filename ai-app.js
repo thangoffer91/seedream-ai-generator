@@ -5,7 +5,7 @@ const CONFIG = {
   WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
   MAX_FILE_SIZE: 5 * 1024 * 1024,
   MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
-  REQUEST_TIMEOUT: 150000, // 2.5 phút
+  REQUEST_TIMEOUT: 150000,
   MAX_HISTORY_ITEMS: 50,
   HISTORY_EXPIRY: 24 * 60 * 60 * 1000,
   MAX_IMAGE_DIMENSION: 1920,
@@ -235,7 +235,7 @@ const historyManager = new HistoryManager();
 function appData() {
   return {
     prompt: '',
-    aspectRatio: '16:9', // NEW FEATURE 1
+    aspectRatio: '16:9',
     imageSlots: [{ file: null, preview: null, loading: false, size: null }],
     results: [],
     history: [],
@@ -244,8 +244,8 @@ function appData() {
     successMessage: '',
     modalOpen: false,
     modalImage: '',
-    modalPrompt: '', // NEW FEATURE 2
-    promptCopied: false, // NEW FEATURE 2
+    modalPrompt: '',
+    promptCopied: false,
     elapsedTime: 0,
     timerInterval: null,
 
@@ -253,7 +253,6 @@ function appData() {
       console.log('✅ App initialized');
       this.loadHistory();
       
-      // Visibility change handler (NEW FEATURE 4)
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           console.log('🌙 Tab hidden - keeping request alive');
@@ -261,6 +260,16 @@ function appData() {
           console.log('☀️ Tab visible');
         }
       });
+    },
+
+    // FIX: Trigger file input với getElementById
+    triggerFileInput(index) {
+      const fileInput = document.getElementById('fileInput-' + index);
+      if (fileInput) {
+        fileInput.click();
+      } else {
+        console.error('File input not found for index:', index);
+      }
     },
 
     async handleFileSelect(event, index) {
@@ -322,7 +331,6 @@ function appData() {
       });
     },
 
-    // NEW FEATURE 3: Clear All
     clearAll() {
       if (confirm('Bạn có chắc muốn xóa tất cả prompt và ảnh?')) {
         this.prompt = '';
@@ -354,7 +362,6 @@ function appData() {
       this.successMessage = '';
       this.elapsedTime = 0;
       
-      // Request Wake Lock (NEW FEATURE 4)
       await requestWakeLock();
 
       this.timerInterval = setInterval(() => {
@@ -362,9 +369,7 @@ function appData() {
       }, 1000);
 
       const sanitizedPrompt = security.sanitizePrompt(this.prompt);
-      const currentPrompt = sanitizedPrompt; // Store for history (NEW FEATURE 3)
-      
-      // Add aspect ratio to prompt (NEW FEATURE 1)
+      const currentPrompt = sanitizedPrompt;
       const aspectRatioPrompt = `${sanitizedPrompt} --ar ${this.aspectRatio}`;
 
       try {
@@ -390,7 +395,7 @@ function appData() {
           method: 'POST',
           body: formData,
           signal: controller.signal,
-          keepalive: true // NEW FEATURE 4
+          keepalive: true
         });
 
         clearTimeout(timeoutId);
@@ -402,9 +407,7 @@ function appData() {
         const result = await response.json();
         console.log('✅ Response:', result);
 
-        // FIX: Backend trả về { imageUrl: "..." } chứ không phải { images: [...] }
         if (result.imageUrl) {
-          // Chuyển về dạng array để xử lý thống nhất
           this.results = [{ 
             url: result.imageUrl, 
             prompt: currentPrompt,
@@ -412,7 +415,6 @@ function appData() {
             timestamp: new Date().toISOString()
           }];
           
-          // Save to history with prompt
           const historyItem = historyManager.save({ 
             url: result.imageUrl, 
             prompt: currentPrompt,
@@ -426,7 +428,6 @@ function appData() {
           
           this.showSuccess(`✨ Tạo ảnh thành công!`);
           
-          // Show notification if tab is hidden (NEW FEATURE 4)
           if (document.hidden) {
             showNotification(
               '✅ Tạo ảnh thành công!',
@@ -435,10 +436,7 @@ function appData() {
             );
           }
           
-          // NEW FEATURE 3: Keep prompt and images instead of clearing
-          
         } else if (result.error) {
-          // Xử lý lỗi từ backend
           throw new Error(result.error);
         } else {
           throw new Error('Không nhận được ảnh từ server');
@@ -453,7 +451,6 @@ function appData() {
           this.showError('❌ Lỗi: ' + error.message);
         }
         
-        // Show error notification if tab is hidden (NEW FEATURE 4)
         if (document.hidden) {
           showNotification(
             '❌ Lỗi khi tạo ảnh',
@@ -465,24 +462,13 @@ function appData() {
         this.isGenerating = false;
         clearInterval(this.timerInterval);
         this.elapsedTime = 0;
-        
-        // Release Wake Lock (NEW FEATURE 4)
         await releaseWakeLock();
       }
     },
 
-    clearAllImages() {
-      this.imageSlots.forEach(slot => {
-        if (slot.preview) {
-          URL.revokeObjectURL(slot.preview);
-        }
-      });
-      this.imageSlots = [{ file: null, preview: null, loading: false, size: null }];
-    },
-
     showModal(result) {
       this.modalImage = result.url;
-      this.modalPrompt = result.prompt || ''; // NEW FEATURE 2
+      this.modalPrompt = result.prompt || '';
       this.promptCopied = false;
       this.modalOpen = true;
       document.body.style.overflow = 'hidden';
@@ -495,7 +481,6 @@ function appData() {
       document.body.style.overflow = '';
     },
 
-    // NEW FEATURE 2: Copy prompt function
     async copyPrompt() {
       try {
         await navigator.clipboard.writeText(this.modalPrompt);
@@ -505,7 +490,6 @@ function appData() {
         }, 2000);
       } catch (err) {
         console.error('Failed to copy:', err);
-        // Fallback for older browsers
         const textarea = document.createElement('textarea');
         textarea.value = this.modalPrompt;
         document.body.appendChild(textarea);
