@@ -2,234 +2,289 @@ console.log("🚀 AI App initializing...");
 
 // ===== CONFIGURATION =====
 const CONFIG = {
-    WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
-    MAX_FILE_SIZE: 5 * 1024 * 1024, // 5MB per file
-    MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
-    REQUEST_TIMEOUT: 150000,
-    MAX_HISTORY_ITEMS: 50,
-    HISTORY_EXPIRY: 24 * 60 * 60 * 1000,
-    MAX_IMAGE_DIMENSION: 1920,
-    COMPRESSION_QUALITY: 0.85,
-    RATE_LIMIT_DELAY: 2000,
+  WEBHOOK_URL: "https://rasp.nthang91.io.vn/webhook/b35794c9-a28f-44ee-8242-983f9d7a4855",
+  MAX_FILE_SIZE: 5 * 1024 * 1024,
+  MAX_COMPRESSED_SIZE: 2 * 1024 * 1024,
+  REQUEST_TIMEOUT: 150000,
+  MAX_HISTORY_ITEMS: 50,
+  HISTORY_EXPIRY: 24 * 60 * 60 * 1000,
+  MAX_IMAGE_DIMENSION: 1920,
+  COMPRESSION_QUALITY: 0.85,
+  RATE_LIMIT_DELAY: 2000,
 };
 
-// ===== MAIN APP =====
+// ===== UTIL =====
+function uuid() {
+  return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+}
+
+function formatTime(date) {
+  return new Date(date).toLocaleString("vi-VN");
+}
+
+// ===== MAIN APP (Alpine) =====
 function aiApp() {
-    return {
-        // ===== STATE =====
-        prompt: '',
-        images: [],
-        results: [],
-        isGenerating: false,
-        selectedAspect: 'landscape',
-        startTime: 0,
-        successMessage: '',
-        errorMessage: '',
-        showModal: false,
-        modalImage: '',
-        modalPrompt: '',
-        fileInput: null,
+  return {
+    // STATE
+    prompt: "",
+    negativePrompt: "",
+    aspectRatio: "landscape",
+    imageSlots: [],
+    isGenerating: false,
+    elapsedTime: "",
+    timerInterval: null,
+    errorMessage: "",
+    successMessage: "",
+    history: [],
+    results: [],
+    showModal: false,
+    selectedResult: null,
 
-        // ===== INIT =====
-        init() {
-            this.fileInput = this.$refs.fileInput;
-            this.loadDraft();
-        },
+    get hasAnyImage() {
+      return this.imageSlots.some(s => !!s.file);
+    },
 
-        // ===== ASPECT RATIO =====
-        get aspectRatio() {
-            return this.selectedAspect === 'landscape' ? '16:9' : '9:16';
-        },
+    // INIT
+    init() {
+      this.addImageSlot(); // ít nhất 1 slot
+      this.loadHistory();
+      this.loadResults();
+    },
 
-        // ===== VALIDATION =====
-        get canGenerate() {
-            return this.prompt.trim().length > 5 && !this.isGenerating;
-        },
+    // IMAGE SLOTS
+    addImageSlot() {
+      this.imageSlots.push({
+        id: uuid(),
+        file: null,
+        previewUrl: "",
+        sizeInfo: "",
+      });
+    },
 
-        // ===== IMAGE UPLOAD =====
-        addImage() {
-            this.fileInput?.click();
-        },
+    clearImageSlot(index) {
+      const slot = this.imageSlots[index];
+      if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+      this.imageSlots[index] = {
+        id: slot.id,
+        file: null,
+        previewUrl: "",
+        sizeInfo: "",
+      };
+    },
 
-        handleFiles(event) {
-            const files = Array.from(event.target.files);
-            files.forEach(file => {
-                if (file.size > CONFIG.MAX_FILE_SIZE) {
-                    this.showError(`File ${file.name} quá lớn (${this.formatFileSize(file.size)})`);
-                    return;
-                }
-                const url = URL.createObjectURL(file);
-                this.images.push({
-                    id: Date.now() + Math.random(),
-                    file,
-                    url,
-                    name: file.name,
-                    size: file.size,
-                    loaded: false
-                });
-            });
-            event.target.value = '';
-        },
+    handleFileChange(event, index) {
+      const file = event.target.files[0];
+      if (!file) return;
 
-        removeImage(index) {
-            const image = this.images[index];
-            if (image.url.startsWith('blob:')) {
-                URL.revokeObjectURL(image.url);
-            }
-            this.images.splice(index, 1);
-        },
+      if (file.size > CONFIG.MAX_FILE_SIZE) {
+        this.showError(`File quá lớn (>${CONFIG.MAX_FILE_SIZE / (1024 * 1024)}MB).`);
+        event.target.value = "";
+        return;
+      }
 
-        onImageLoad(event, index) {
-            this.images[index].loaded = true;
-        },
+      const slot = this.imageSlots[index];
+      if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
 
-        // ===== IMAGE GENERATION - DIRECT FETCH (KHÔNG CẦN SW) =====
-        async generateImages() {
-            if (!this.canGenerate) return;
+      const url = URL.createObjectURL(file);
+      this.imageSlots[index].file = file;
+      this.imageSlots[index].previewUrl = url;
+      this.imageSlots[index].sizeInfo = `${(file.size / 1024).toFixed(1)} KB`;
+    },
 
-            this.isGenerating = true;
-            this.startTime = Date.now();
-            this.successMessage = '';
-            this.errorMessage = '';
+    // GENERATE
+    async generateImage() {
+      if (this.isGenerating) return;
+      if (!this.prompt.trim()) {
+        this.showError("Vui lòng nhập prompt.");
+        return;
+      }
 
-            try {
-                // Tạo FormData
-                const formData = new FormData();
-                formData.append('prompt', this.prompt.trim());
-                formData.append('aspect_ratio', this.selectedAspect);
-                
-                // Thêm reference images
-                this.images.forEach((img, index) => {
-                    formData.append(`images[${index}][name]`, img.name);
-                    formData.append(`images[${index}][size]`, img.size);
-                    if (img.file) {
-                        formData.append(`images[${index}][file]`, img.file);
-                    }
-                });
+      this.errorMessage = "";
+      this.successMessage = "";
+      this.isGenerating = true;
+      this.startTimer();
 
-                // Fetch với keepalive + timeout cho background
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
+      try {
+        const formData = new FormData();
+        formData.append("prompt", this.prompt);
+        formData.append("negative_prompt", this.negativePrompt || "");
+        formData.append("aspect_ratio", this.aspectRatio);
 
-                const response = await fetch(CONFIG.WEBHOOK_URL, {
-                    method: 'POST',
-                    body: formData,
-                    signal: controller.signal,
-                    keepalive: true, // Quan trọng cho background
-                    cache: 'no-cache'
-                });
+        this.imageSlots.forEach((slot, idx) => {
+          if (slot.file) {
+            formData.append(`image_${idx}`, slot.file, slot.file.name);
+          }
+        });
 
-                clearTimeout(timeoutId);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
+        const res = await fetch(CONFIG.WEBHOOK_URL, {
+          method: "POST",
+          body: formData,
+          signal: controller.signal,
+        });
 
-                const result = await response.json();
-                
-                if (result.images && result.images.length > 0) {
-                    const newResults = result.images.map(img => ({
-                        id: Date.now() + Math.random(),
-                        url: img.url || img,
-                        prompt: this.prompt.trim()
-                    }));
-                    
-                    this.results = [...this.results, ...newResults];
-                    this.successMessage = `✅ Tạo thành công ${newResults.length} ảnh!`;
-                    
-                    // LƯU DRAFT - KHÔNG CLEAR FORM
-                    this.saveDraft();
-                } else {
-                    throw new Error('Không nhận được ảnh từ server');
-                }
+        clearTimeout(timeoutId);
 
-            } catch (error) {
-                if (error.name === 'AbortError') {
-                    this.showError('⏰ Timeout - Server quá chậm');
-                } else {
-                    this.showError('❌ Lỗi tạo ảnh: ' + error.message);
-                }
-            } finally {
-                this.isGenerating = false;
-            }
-        },
-
-        // ===== UI HELPERS =====
-        formatTimer() {
-            if (!this.isGenerating || !this.startTime) return '';
-            const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
-            const minutes = Math.floor(elapsed / 60);
-            const seconds = elapsed % 60;
-            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-        },
-
-        onResultLoad(event) {
-            event.target.style.opacity = '1';
-        },
-
-        // ===== MODAL =====
-        openModal(imageUrl, prompt) {
-            this.modalImage = imageUrl;
-            this.modalPrompt = prompt;
-            this.showModal = true;
-            document.body.style.overflow = 'hidden'; // Prevent scroll
-        },
-
-        closeModal() {
-            this.showModal = false;
-            document.body.style.overflow = ''; // Restore scroll
-        },
-
-        // ===== COPY PROMPT =====
-        copyPrompt() {
-            navigator.clipboard.writeText(this.modalPrompt).then(() => {
-                this.successMessage = '✅ Đã copy prompt!';
-                setTimeout(() => { this.successMessage = ''; }, 2000);
-            }).catch(() => {
-                this.showError('Không thể copy prompt');
-            });
-        },
-
-        // ===== HELPERS =====
-        showError(message) {
-            this.errorMessage = message;
-            setTimeout(() => { this.errorMessage = ''; }, 5000);
-        },
-
-        formatFileSize(bytes) {
-            if (bytes === 0) return '0 Bytes';
-            const k = 1024;
-            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-        },
-
-        // ===== DRAFT (GIỮ FORM STATE) =====
-        saveDraft() {
-            try {
-                const draft = {
-                    prompt: this.prompt,
-                    images: this.images.map(img => ({ 
-                        name: img.name, 
-                        size: img.size 
-                    })),
-                    aspect: this.selectedAspect,
-                    timestamp: Date.now()
-                };
-                localStorage.setItem('aiapp_draft', JSON.stringify(draft));
-            } catch (e) {}
-        },
-
-        loadDraft() {
-            try {
-                const draft = localStorage.getItem('aiapp_draft');
-                if (draft) {
-                    const data = JSON.parse(draft);
-                    this.prompt = data.prompt || '';
-                    this.selectedAspect = data.aspect || 'landscape';
-                    // Không restore images vì cần file objects mới
-                }
-            } catch (e) {}
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          throw new Error(text || `Request failed with status ${res.status}`);
         }
-    }
+
+        const data = await res.json();
+
+        // data.image_url hoặc tương tự tùy webhook của bạn
+        const imageUrl = data.image_url || data.url || "";
+        if (!imageUrl) {
+          throw new Error("Webhook không trả về URL ảnh hợp lệ.");
+        }
+
+        const item = {
+          id: uuid(),
+          imageUrl,
+          prompt: this.prompt,
+          negative_prompt: this.negativePrompt,
+          aspect_ratio: this.aspectRatio,
+          created_at: Date.now(),
+        };
+
+        this.results.unshift(item);
+        this.results = this.results.slice(0, 30);
+        this.saveResults();
+
+        this.addHistoryItem();
+
+        this.successMessage = "Tạo ảnh thành công.";
+      } catch (err) {
+        if (err.name === "AbortError") {
+          this.showError("Request bị timeout. Vui lòng thử lại.");
+        } else {
+          this.showError(err.message || "Có lỗi xảy ra khi tạo ảnh.");
+        }
+      } finally {
+        this.isGenerating = false;
+        this.stopTimer();
+        // KHÔNG CLEAR FORM: giữ nguyên prompt + ảnh
+      }
+    },
+
+    // HISTORY
+    addHistoryItem() {
+      const item = {
+        id: uuid(),
+        prompt: this.prompt,
+        negative_prompt: this.negativePrompt,
+        aspect_ratio: this.aspectRatio,
+        time: formatTime(Date.now()),
+        created_at: Date.now(),
+      };
+      this.history.unshift(item);
+      this.history = this.history.slice(0, CONFIG.MAX_HISTORY_ITEMS);
+      this.saveHistory();
+    },
+
+    saveHistory() {
+      const payload = {
+        version: 1,
+        items: this.history,
+        saved_at: Date.now(),
+      };
+      localStorage.setItem("ai_history", JSON.stringify(payload));
+    },
+
+    loadHistory() {
+      try {
+        const raw = localStorage.getItem("ai_history");
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        this.history = Array.isArray(payload.items) ? payload.items : [];
+      } catch {
+        this.history = [];
+      }
+    },
+
+    clearHistory() {
+      this.history = [];
+      localStorage.removeItem("ai_history");
+    },
+
+    // RESULTS
+    saveResults() {
+      const payload = {
+        version: 1,
+        items: this.results,
+        saved_at: Date.now(),
+      };
+      localStorage.setItem("ai_results", JSON.stringify(payload));
+    },
+
+    loadResults() {
+      try {
+        const raw = localStorage.getItem("ai_results");
+        if (!raw) return;
+        const payload = JSON.parse(raw);
+        this.results = Array.isArray(payload.items) ? payload.items : [];
+      } catch {
+        this.results = [];
+      }
+    },
+
+    // TIMER
+    startTimer() {
+      let start = Date.now();
+      this.elapsedTime = "00:00";
+      if (this.timerInterval) clearInterval(this.timerInterval);
+      this.timerInterval = setInterval(() => {
+        const diff = Date.now() - start;
+        const sec = Math.floor(diff / 1000);
+        const m = String(Math.floor(sec / 60)).padStart(2, "0");
+        const s = String(sec % 60).padStart(2, "0");
+        this.elapsedTime = `${m}:${s}`;
+      }, 1000);
+    },
+
+    stopTimer() {
+      if (this.timerInterval) clearInterval(this.timerInterval);
+      this.timerInterval = null;
+      this.elapsedTime = "";
+    },
+
+    // MODAL
+    openPreview(item) {
+      this.selectedResult = item;
+      this.showModal = true;
+    },
+
+    closePreview() {
+      this.showModal = false;
+      this.selectedResult = null;
+    },
+
+    copyPrompt() {
+      if (!this.selectedResult || !this.selectedResult.prompt) return;
+      navigator.clipboard.writeText(this.selectedResult.prompt).then(() => {
+        this.successMessage = "Đã copy prompt.";
+        setTimeout(() => {
+          if (this.successMessage === "Đã copy prompt.") this.successMessage = "";
+        }, 1500);
+      });
+    },
+
+    // FORM CONTROL
+    clearForm() {
+      this.prompt = "";
+      this.negativePrompt = "";
+      this.aspectRatio = "landscape";
+      this.imageSlots.forEach((slot, idx) => this.clearImageSlot(idx));
+    },
+
+    // MESSAGE
+    showError(msg) {
+      this.errorMessage = msg;
+      setTimeout(() => {
+        if (this.errorMessage === msg) this.errorMessage = "";
+      }, 4000);
+    },
+  };
 }
