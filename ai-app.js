@@ -21,24 +21,19 @@ function aiApp() {
         images: [],
         results: [],
         isGenerating: false,
-        selectedAspect: 'landscape', // Mới: landscape hoặc portrait
+        selectedAspect: 'landscape',
         startTime: 0,
         successMessage: '',
         errorMessage: '',
         showModal: false,
         modalImage: '',
         modalPrompt: '',
-        
-        // File input ref
         fileInput: null,
 
         // ===== INIT =====
         init() {
             this.fileInput = this.$refs.fileInput;
-            this.loadHistory();
-            this.$watch('prompt', () => this.saveDraft());
-            this.$watch('images', () => this.saveDraft());
-            this.$watch('selectedAspect', () => this.saveDraft());
+            this.loadDraft();
         },
 
         // ===== ASPECT RATIO =====
@@ -88,7 +83,7 @@ function aiApp() {
             this.images[index].loaded = true;
         },
 
-        // ===== IMAGE GENERATION =====
+        // ===== IMAGE GENERATION - DIRECT FETCH (KHÔNG CẦN SW) =====
         async generateImages() {
             if (!this.canGenerate) return;
 
@@ -98,51 +93,68 @@ function aiApp() {
             this.errorMessage = '';
 
             try {
-                // Post message to Service Worker cho background processing
-                const generationId = Date.now();
-                const payload = {
-                    id: generationId,
-                    prompt: this.prompt.trim(),
-                    images: this.images.map(img => ({
-                        name: img.name,
-                        size: img.size
-                    })),
-                    aspect_ratio: this.selectedAspect, // Thêm aspect ratio
-                    timestamp: new Date().toISOString()
-                };
-
-                // Gửi đến Service Worker
-                const registration = await navigator.serviceWorker.ready;
-                registration.active.postMessage({
-                    type: 'GENERATE_IMAGES',
-                    payload
+                // Tạo FormData
+                const formData = new FormData();
+                formData.append('prompt', this.prompt.trim());
+                formData.append('aspect_ratio', this.selectedAspect);
+                
+                // Thêm reference images
+                this.images.forEach((img, index) => {
+                    formData.append(`images[${index}][name]`, img.name);
+                    formData.append(`images[${index}][size]`, img.size);
+                    if (img.file) {
+                        formData.append(`images[${index}][file]`, img.file);
+                    }
                 });
 
-                // Listen cho kết quả từ Service Worker
-                navigator.serviceWorker.addEventListener('message', this.handleSWMessage.bind(this));
-                
-            } catch (error) {
-                this.showError('Lỗi khởi tạo: ' + error.message);
-                this.isGenerating = false;
-            }
-        },
+                // Fetch với keepalive + timeout cho background
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
-        handleSWMessage(event) {
-            if (event.data.type === 'GENERATION_RESULT') {
-                const { success, results, error } = event.data;
-                
-                if (success && results) {
-                    this.results = [...this.results, ...results];
-                    this.saveHistory({ prompt: this.prompt, images: this.images.length, aspect: this.selectedAspect, results });
-                    this.successMessage = `✅ Tạo thành công ${results.length} ảnh!`;
-                } else {
-                    this.showError(error || 'Lỗi từ server');
+                const response = await fetch(CONFIG.WEBHOOK_URL, {
+                    method: 'POST',
+                    body: formData,
+                    signal: controller.signal,
+                    keepalive: true, // Quan trọng cho background
+                    cache: 'no-cache'
+                });
+
+                clearTimeout(timeoutId);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
+
+                const result = await response.json();
                 
+                if (result.images && result.images.length > 0) {
+                    const newResults = result.images.map(img => ({
+                        id: Date.now() + Math.random(),
+                        url: img.url || img,
+                        prompt: this.prompt.trim()
+                    }));
+                    
+                    this.results = [...this.results, ...newResults];
+                    this.successMessage = `✅ Tạo thành công ${newResults.length} ảnh!`;
+                    
+                    // LƯU DRAFT - KHÔNG CLEAR FORM
+                    this.saveDraft();
+                } else {
+                    throw new Error('Không nhận được ảnh từ server');
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    this.showError('⏰ Timeout - Server quá chậm');
+                } else {
+                    this.showError('❌ Lỗi tạo ảnh: ' + error.message);
+                }
+            } finally {
                 this.isGenerating = false;
             }
         },
 
+        // ===== UI HELPERS =====
         formatTimer() {
             if (!this.isGenerating || !this.startTime) return '';
             const elapsed = Math.floor((Date.now() - this.startTime) / 1000);
@@ -160,20 +172,19 @@ function aiApp() {
             this.modalImage = imageUrl;
             this.modalPrompt = prompt;
             this.showModal = true;
+            document.body.style.overflow = 'hidden'; // Prevent scroll
         },
 
         closeModal() {
             this.showModal = false;
+            document.body.style.overflow = ''; // Restore scroll
         },
 
         // ===== COPY PROMPT =====
         copyPrompt() {
             navigator.clipboard.writeText(this.modalPrompt).then(() => {
-                const original = this.successMessage;
                 this.successMessage = '✅ Đã copy prompt!';
-                setTimeout(() => {
-                    this.successMessage = original;
-                }, 2000);
+                setTimeout(() => { this.successMessage = ''; }, 2000);
             }).catch(() => {
                 this.showError('Không thể copy prompt');
             });
@@ -182,9 +193,7 @@ function aiApp() {
         // ===== HELPERS =====
         showError(message) {
             this.errorMessage = message;
-            setTimeout(() => {
-                this.errorMessage = '';
-            }, 5000);
+            setTimeout(() => { this.errorMessage = ''; }, 5000);
         },
 
         formatFileSize(bytes) {
@@ -195,12 +204,15 @@ function aiApp() {
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         },
 
-        // ===== HISTORY & DRAFT =====
+        // ===== DRAFT (GIỮ FORM STATE) =====
         saveDraft() {
             try {
                 const draft = {
                     prompt: this.prompt,
-                    images: this.images.map(img => ({ name: img.name, size: img.size })),
+                    images: this.images.map(img => ({ 
+                        name: img.name, 
+                        size: img.size 
+                    })),
                     aspect: this.selectedAspect,
                     timestamp: Date.now()
                 };
@@ -215,25 +227,9 @@ function aiApp() {
                     const data = JSON.parse(draft);
                     this.prompt = data.prompt || '';
                     this.selectedAspect = data.aspect || 'landscape';
+                    // Không restore images vì cần file objects mới
                 }
             } catch (e) {}
-        },
-
-        saveHistory(entry) {
-            try {
-                let history = JSON.parse(localStorage.getItem('aiapp_history') || '[]');
-                history.unshift({
-                    ...entry,
-                    id: Date.now(),
-                    timestamp: Date.now()
-                });
-                history = history.slice(0, CONFIG.MAX_HISTORY_ITEMS);
-                localStorage.setItem('aiapp_history', JSON.stringify(history));
-            } catch (e) {}
-        },
-
-        loadHistory() {
-            this.loadDraft();
         }
     }
 }
