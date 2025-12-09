@@ -147,29 +147,6 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
 }
 
-/* ===== ASPECT OPTIONS ===== */
-.aspect-options {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.aspect-option {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #0d1117;
-  border-radius: 999px;
-  padding: 6px 10px;
-  border: 1px solid #30363d;
-  font-size: 13px;
-  color: #c9d1d9;
-}
-
-.aspect-option input[type="radio"] {
-  accent-color: #58a6ff;
-}
-
 /* ===== BUTTONS ===== */
 button {
   cursor: pointer;
@@ -238,7 +215,7 @@ button:active:not(:disabled) {
   color: #f0f6fc;
 }
 
-/* secondary for modal */
+/* THÊM: nút secondary dùng cho copy trong modal */
 .btn-secondary {
   background: #30363d;
   color: #f0f6fc;
@@ -253,7 +230,7 @@ button:active:not(:disabled) {
   font-weight: 700;
   font-size: 14px;
   margin-left: 8px;
-  font-family: "Courier New", monospace;
+  font-family: 'Courier New', monospace;
   letter-spacing: 0.5px;
   animation: pulse 1.5s ease-in-out infinite;
   box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
@@ -393,7 +370,6 @@ button:active:not(:disabled) {
 .modal {
   position: fixed;
   inset: 0;
-  display: flex;
   justify-content: center;
   align-items: center;
   z-index: 9999;
@@ -415,24 +391,25 @@ button:active:not(:disabled) {
   padding: 15px;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.6);
   animation: fadeIn 0.3s ease;
   max-width: 95vw;
   max-height: 90vh;
-  width: 100%;
 }
 
+.modal-image {
+  max-width: 90vw;
+  max-height: 50vh;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
+}
+
+/* THÊM: wrapper hình + prompt layout mới */
 .modal-image-wrapper {
   display: flex;
   justify-content: center;
   margin-bottom: 10px;
-}
-
-.modal-image {
-  max-width: 100%;
-  max-height: 50vh;
-  border-radius: 8px;
-  box-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
 }
 
 .modal-prompt {
@@ -520,9 +497,7 @@ button:active:not(:disabled) {
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes fadeIn {
@@ -542,6 +517,29 @@ button:active:not(:disabled) {
   padding: 30px 15px;
   color: #6e7681;
   font-size: 14px;
+}
+
+/* ===== ASPECT OPTIONS (THÊM MỚI) ===== */
+.aspect-options {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.aspect-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #0d1117;
+  border-radius: 999px;
+  padding: 6px 10px;
+  border: 1px solid #30363d;
+  font-size: 13px;
+  color: #c9d1d9;
+}
+
+.aspect-option input[type="radio"] {
+  accent-color: #58a6ff;
 }
 
 /* ===== RESPONSIVE - TABLET ===== */
