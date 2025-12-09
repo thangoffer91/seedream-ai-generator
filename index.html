@@ -35,22 +35,22 @@
         <textarea id="negativePrompt" x-model="negativePrompt" placeholder="Những thứ không muốn xuất hiện..."></textarea>
       </div>
 
-      <!-- ASPECT RATIO -->
+      <!-- ASPECT RATIO (THÊM MỚI) -->
       <div class="form-group">
         <label>Khung ảnh</label>
         <div class="aspect-options">
           <label class="aspect-option">
-            <input type="radio" name="aspect_ratio" value="landscape" x-model="aspectRatio" />
+            <input type="radio" name="aspect_ratio" value="landscape" x-model="aspectRatio" checked>
             <span>Ngang (16:9)</span>
           </label>
           <label class="aspect-option">
-            <input type="radio" name="aspect_ratio" value="portrait" x-model="aspectRatio" />
+            <input type="radio" name="aspect_ratio" value="portrait" x-model="aspectRatio">
             <span>Dọc (9:16)</span>
           </label>
         </div>
       </div>
 
-      <!-- IMAGE UPLOAD SLOTS -->
+      <!-- IMAGE UPLOAD SLOTS (giữ nguyên cấu trúc gốc, chỉ hiển thị bằng Alpine) -->
       <div class="image-slots-container">
         <template x-for="(imageSlot, index) in imageSlots" :key="imageSlot.id">
           <div class="image-item">
@@ -107,12 +107,17 @@
         <span x-show="isGenerating && elapsedTime" class="timer-badge" x-text="elapsedTime"></span>
       </button>
 
-      <!-- OPTIONAL: CLEAR FORM MANUAL -->
-      <button type="button" class="btn-clear-form" @click="clearForm()" x-show="prompt || negativePrompt || hasAnyImage">
+      <!-- NÚT XOÁ FORM THỦ CÔNG (THÊM, KHÔNG ĐỤNG LOGIC GỐC) -->
+      <button
+        type="button"
+        class="btn-clear-form"
+        @click="clearForm()"
+        x-show="prompt || negativePrompt || hasAnyImage"
+      >
         Xoá form
       </button>
 
-      <!-- RESULTS -->
+      <!-- RESULTS (giữ nguyên nhưng có thể đã có sẵn trong code gốc, nếu khác bạn copy phần bạn đang dùng) -->
       <div class="results-section">
         <h3>Kết quả gần đây</h3>
         <template x-if="results.length === 0">
@@ -133,11 +138,16 @@
       </div>
     </div>
 
-    <!-- RIGHT: HISTORY -->
+    <!-- RIGHT: HISTORY (giữ nguyên bố cục, chỉ dùng nếu trong code gốc đã có) -->
     <div class="history-panel">
       <div class="history-header">
         <h3>Lịch sử request</h3>
-        <button type="button" class="btn-clear-history" @click="clearHistory()" x-show="history.length > 0">
+        <button
+          type="button"
+          class="btn-clear-history"
+          @click="clearHistory()"
+          x-show="history.length > 0"
+        >
           Xoá lịch sử
         </button>
       </div>
@@ -160,7 +170,7 @@
     </div>
   </div>
 
-  <!-- MODAL PREVIEW -->
+  <!-- MODAL PREVIEW (đã chỉnh layout: hình trên, prompt dưới, download cuối) -->
   <div
     class="modal"
     x-show="showModal"
