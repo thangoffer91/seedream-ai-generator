@@ -152,20 +152,6 @@ class ImageProcessor {
     });
   }
 
-  // NEW: Convert blob to base64
-  static async blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        // Remove data:image/jpeg;base64, prefix
-        const base64 = reader.result.split(',')[1];
-        resolve(base64);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  }
-
   static formatFileSize(bytes) {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -249,7 +235,7 @@ const historyManager = new HistoryManager();
 function appData() {
   return {
     prompt: '',
-    aspectRatio: '16:9',
+    aspectRatio: '16:9', // NEW FEATURE 1 (chỉ để hiển thị, không gửi lên server)
     imageSlots: [{ file: null, preview: null, loading: false, size: null }],
     results: [],
     history: [],
@@ -258,8 +244,8 @@ function appData() {
     successMessage: '',
     modalOpen: false,
     modalImage: '',
-    modalPrompt: '',
-    promptCopied: false,
+    modalPrompt: '', // NEW FEATURE 2
+    promptCopied: false, // NEW FEATURE 2
     elapsedTime: 0,
     timerInterval: null,
 
@@ -267,6 +253,7 @@ function appData() {
       console.log('✅ App initialized');
       this.loadHistory();
       
+      // NEW FEATURE 4: Visibility change handler
       document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
           console.log('🌙 Tab hidden - keeping request alive');
@@ -344,6 +331,7 @@ function appData() {
       });
     },
 
+    // NEW FEATURE 3: Clear All
     clearAll() {
       if (confirm('Bạn có chắc muốn xóa tất cả prompt và ảnh?')) {
         this.prompt = '';
@@ -356,6 +344,22 @@ function appData() {
         this.results = [];
         this.showSuccess('Đã xóa tất cả!');
       }
+    },
+
+    // Convert file to DataURL (from original code)
+    fileToDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Không đọc được file'));
+        reader.readAsDataURL(file);
+      });
+    },
+
+    // Convert file to base64 (from original code)
+    async fileToBase64(file) {
+      const dataURL = await this.fileToDataURL(file);
+      return dataURL.split(",")[1];
     },
 
     async generateImage() {
@@ -375,6 +379,7 @@ function appData() {
       this.successMessage = '';
       this.elapsedTime = 0;
       
+      // NEW FEATURE 4: Request Wake Lock
       await requestWakeLock();
 
       this.timerInterval = setInterval(() => {
@@ -382,42 +387,43 @@ function appData() {
       }, 1000);
 
       const sanitizedPrompt = security.sanitizePrompt(this.prompt);
-      const currentPrompt = sanitizedPrompt;
-      const aspectRatioPrompt = `${sanitizedPrompt} --ar ${this.aspectRatio}`;
+      const currentPrompt = sanitizedPrompt; // NEW FEATURE 2: Store for modal
 
       try {
-        // FIX: Convert images to base64 array
-        const imagesWithFiles = this.imageSlots.filter(slot => slot.file);
-        const imagesBase64 = [];
+        // Get uploaded images (from original code)
+        const uploadedSlots = this.imageSlots.filter(s => s.file);
         
-        for (const slot of imagesWithFiles) {
-          const base64 = await ImageProcessor.blobToBase64(slot.file);
-          imagesBase64.push({ base64 });
+        let images = [];
+        if (uploadedSlots.length > 0) {
+          images = await Promise.all(
+            uploadedSlots.map(async (slot) => ({
+              base64: await this.fileToBase64(slot.file),
+              filename: slot.file.name || 'image.jpg',
+              mimetype: slot.file.type || 'image/jpeg',
+            }))
+          );
         }
-
-        // FIX: Send JSON instead of FormData
-        const requestBody = {
-          prompt: aspectRatioPrompt,
-          images: imagesBase64
-        };
 
         security.logActivity('Generate request', { 
           prompt: sanitizedPrompt, 
-          aspectRatio: this.aspectRatio,
-          imageCount: imagesBase64.length
+          imageCount: images.length
         });
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), CONFIG.REQUEST_TIMEOUT);
 
+        // Send request exactly like original code
         const response = await fetch(CONFIG.WEBHOOK_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify(requestBody),
+          body: JSON.stringify({ 
+            prompt: sanitizedPrompt, 
+            images: images
+          }),
           signal: controller.signal,
-          keepalive: true
+          keepalive: true // NEW FEATURE 4
         });
 
         clearTimeout(timeoutId);
@@ -426,43 +432,44 @@ function appData() {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
-        const result = await response.json();
-        console.log('✅ Response:', result);
+        const data = await response.json();
+        const imageUrl = data.imageUrl || data.url || data.fileUrl;
 
-        if (result.imageUrl) {
-          this.results = [{ 
-            url: result.imageUrl, 
-            prompt: currentPrompt,
-            aspectRatio: this.aspectRatio,
-            timestamp: new Date().toISOString()
-          }];
-          
-          const historyItem = historyManager.save({ 
-            url: result.imageUrl, 
-            prompt: currentPrompt,
-            aspectRatio: this.aspectRatio
-          });
-          this.history.unshift(historyItem);
-          
-          if (this.history.length > CONFIG.MAX_HISTORY_ITEMS) {
-            this.history = this.history.slice(0, CONFIG.MAX_HISTORY_ITEMS);
-          }
-          
-          this.showSuccess(`✨ Tạo ảnh thành công!`);
-          
-          if (document.hidden) {
-            showNotification(
-              '✅ Tạo ảnh thành công!',
-              `Đã tạo xong ảnh từ prompt: "${currentPrompt.slice(0, 50)}..."`,
-              '🎨'
-            );
-          }
-          
-        } else if (result.error) {
-          throw new Error(result.error);
-        } else {
-          throw new Error('Không nhận được ảnh từ server');
+        if (!imageUrl) {
+          throw new Error('Không nhận được URL ảnh từ server');
         }
+
+        // NEW FEATURE 2: Save with prompt for modal
+        this.results = [{ 
+          url: imageUrl, 
+          prompt: currentPrompt,
+          timestamp: new Date().toISOString()
+        }];
+        
+        const historyItem = historyManager.save({ 
+          url: imageUrl, 
+          prompt: currentPrompt
+        });
+        this.history.unshift(historyItem);
+        
+        if (this.history.length > CONFIG.MAX_HISTORY_ITEMS) {
+          this.history = this.history.slice(0, CONFIG.MAX_HISTORY_ITEMS);
+        }
+
+        this.showSuccess(`✨ Tạo ảnh thành công!`);
+        
+        // NEW FEATURE 4: Show notification if tab is hidden
+        if (document.hidden) {
+          showNotification(
+            '✅ Tạo ảnh thành công!',
+            `Đã tạo xong ảnh từ prompt: "${currentPrompt.slice(0, 50)}..."`,
+            '🎨'
+          );
+        }
+        
+        // NEW FEATURE 3: KHÔNG xóa prompt và ảnh nữa (khác với code gốc)
+        // Code gốc có: this.prompt = ""; this.imageSlots = []; 
+        // Giờ GIỮ LẠI để user có thể tạo lại hoặc sửa
 
       } catch (error) {
         console.error('❌ Error:', error);
@@ -473,6 +480,7 @@ function appData() {
           this.showError('❌ Lỗi: ' + error.message);
         }
         
+        // NEW FEATURE 4: Show error notification if tab is hidden
         if (document.hidden) {
           showNotification(
             '❌ Lỗi khi tạo ảnh',
@@ -484,13 +492,15 @@ function appData() {
         this.isGenerating = false;
         clearInterval(this.timerInterval);
         this.elapsedTime = 0;
+        
+        // NEW FEATURE 4: Release Wake Lock
         await releaseWakeLock();
       }
     },
 
     showModal(result) {
       this.modalImage = result.url;
-      this.modalPrompt = result.prompt || '';
+      this.modalPrompt = result.prompt || ''; // NEW FEATURE 2
       this.promptCopied = false;
       this.modalOpen = true;
       document.body.style.overflow = 'hidden';
@@ -503,6 +513,7 @@ function appData() {
       document.body.style.overflow = '';
     },
 
+    // NEW FEATURE 2: Copy prompt function
     async copyPrompt() {
       try {
         await navigator.clipboard.writeText(this.modalPrompt);
@@ -559,10 +570,10 @@ function appData() {
   };
 }
 
-// ===== SERVICE WORKER REGISTRATION (FIX 404 ERROR) =====
+// ===== SERVICE WORKER REGISTRATION =====
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js') // Changed from '/sw.js' to './sw.js'
+    navigator.serviceWorker.register('./sw.js')
       .then(reg => console.log('✅ Service Worker registered'))
       .catch(err => console.warn('❌ SW registration failed:', err));
   });
