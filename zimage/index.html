@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Công cụ tạo ảnh AI Zimage chuyên nghiệp">
+    <title>Tạo ảnh Zimage AI</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="https://n8n.io/favicon.ico" />
+
+    <!-- 1. Stylesheets -->
+    <!-- Font Awesome & Google Fonts -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS (Liên kết file style.css) -->
+    <link rel="stylesheet" href="style.css">
+
+    <!-- 2. Libraries -->
+    <!-- Tailwind CSS (CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Cấu hình Tailwind (Giữ lại ở HTML để khởi tạo nhanh cùng CDN) -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+                        }
+                    },
+                    animation: {
+                        'spin-slow': 'spin 3s linear infinite',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col items-center justify-center py-10 px-4">
+
+    <!-- Main Card -->
+    <main class="w-full max-w-lg glass-effect rounded-2xl shadow-xl border border-white/50 overflow-hidden relative">
+        
+        <!-- Header -->
+        <div class="bg-white px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 tracking-tight">Zimage AI</h1>
+                <p class="text-sm text-slate-500 mt-1">Sáng tạo hình ảnh từ văn bản</p>
+            </div>
+            <div class="h-10 w-10 bg-brand-50 rounded-full flex items-center justify-center text-brand-600">
+                <i class="fa-solid fa-wand-magic-sparkles text-lg"></i>
+            </div>
+        </div>
+
+        <!-- Form Content -->
+        <div class="p-8 space-y-6">
+            <form id="aiForm" class="space-y-6">
+                
+                <!-- Prompt Field -->
+                <div class="space-y-2">
+                    <label for="prompt" class="block text-sm font-semibold text-slate-700">
+                        Mô tả hình ảnh (Prompt) <span class="text-red-500">*</span>
+                    </label>
+                    <div class="relative">
+                        <textarea 
+                            id="prompt" 
+                            name="field-0" 
+                            rows="4" 
+                            class="w-full px-4 py-3 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 transition-all outline-none resize-none text-slate-700 placeholder-slate-400"
+                            placeholder="Ví dụ: Một chú mèo phi hành gia đang bay lượn trong dải ngân hà..."
+                            required
+                        ></textarea>
+                        <div class="absolute bottom-3 right-3 text-slate-400 text-xs">
+                            <i class="fa-regular fa-keyboard"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Settings Grid -->
+                <div class="grid grid-cols-2 gap-4">
+                    
+                    <!-- Aspect Ratio -->
+                    <div class="space-y-2">
+                        <label for="aspectRatio" class="block text-sm font-semibold text-slate-700">Tỉ lệ khung hình</label>
+                        <div class="relative">
+                            <select id="aspectRatio" name="field-1" class="w-full appearance-none px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 outline-none transition-all cursor-pointer">
+                                <option value="1:1" selected>1:1 (Vuông)</option>
+                                <option value="4:3">4:3 (Ngang)</option>
+                                <option value="3:2">3:2 (Ngang rộng)</option>
+                                <option value="16:9">16:9 (Điện ảnh)</option>
+                                <option value="9:16">9:16 (Story)</option>
+                                <option value="2:3">2:3 (Chân dung)</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-chevron-down text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Model Selection -->
+                    <div class="space-y-2">
+                        <label for="model" class="block text-sm font-semibold text-slate-700">Model AI</label>
+                        <div class="relative">
+                            <select id="model" name="field-2" class="w-full appearance-none px-4 py-2.5 rounded-lg border border-slate-200 bg-white text-slate-700 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/10 outline-none transition-all cursor-pointer">
+                                <option value="flux">Flux (Mới)</option>
+                                <option value="zimage" selected>Zimage</option>
+                            </select>
+                            <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
+                                <i class="fa-solid fa-microchip text-xs"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="submitBtn" class="group w-full py-3.5 px-4 bg-gradient-to-r from-brand-600 to-brand-700 hover:from-brand-700 hover:to-brand-800 text-white font-semibold rounded-xl shadow-lg shadow-brand-500/30 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2">
+                    <span id="btnText">Tạo ảnh ngay</span>
+                    <i id="btnIcon" class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                    
+                    <!-- Loading Spinner (Hidden by default) -->
+                    <svg id="loadingSpinner" class="hidden animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+
+            </form>
+
+            <!-- Error Message Area -->
+            <div id="errorMessage" class="hidden p-4 rounded-lg bg-red-50 border border-red-100 text-red-600 text-sm flex items-start gap-3">
+                <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
+                <span id="errorText">Đã có lỗi xảy ra.</span>
+            </div>
+
+            <!-- Result Area -->
+            <div id="resultArea" class="hidden space-y-4 pt-4 border-t border-slate-100">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider">Kết quả</h3>
+                <div class="relative group rounded-xl overflow-hidden shadow-md bg-slate-100 min-h-[200px] flex items-center justify-center">
+                    <img id="resultImage" src="" alt="Generated Image" class="w-full h-auto object-cover opacity-0 transition-opacity duration-500">
+                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-sm">
+                        <a id="downloadLink" href="#" target="_blank" class="p-2 bg-white rounded-full text-slate-900 hover:text-brand-600 transition-colors" title="Xem ảnh gốc">
+                            <i class="fa-solid fa-expand"></i>
+                        </a>
+                        <button id="downloadBtn" class="p-2 bg-white rounded-full text-slate-900 hover:text-brand-600 transition-colors" title="Tải xuống">
+                            <i class="fa-solid fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-center text-xs text-slate-400">Nhấp chuột phải vào ảnh hoặc dùng nút để lưu</p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="bg-slate-50 px-8 py-4 border-t border-slate-100 text-center">
+            <p class="text-xs text-slate-400">Powered by n8n & GitHub Pages</p>
+        </div>
+    </main>
+
+    <!-- 3. Logic Script (Liên kết file script.js) -->
+    <!-- 'defer' giúp script chạy sau khi HTML load xong -->
+    <script src="script.js" defer></script>
+</body>
+</html>
