@@ -1,6 +1,6 @@
 /**
- * Zimage AI Generator Logic
- * Xử lý kết nối với n8n Webhook và cập nhật giao diện
+ * Zimage AI Generator Logic - Split View Layout
+ * Xử lý logic cho giao diện 2 cột: Form bên trái, Kết quả bên phải.
  */
 
 // ==========================================
@@ -10,10 +10,10 @@ const CONFIG = {
     // URL Webhook của bạn
     WEBHOOK_URL: 'https://rasp.nthang91.io.vn/webhook/65243e1e-19cb-405f-bbf4-4a0fd934c5dd',
     ERROR_MESSAGES: {
-        MISSING_URL: 'Vui lòng kiểm tra cấu hình URL Webhook trong file script.js',
-        SERVER_ERROR: 'Lỗi Server',
-        NO_IMAGE: 'Không tìm thấy đường dẫn ảnh trong phản hồi. Server cần trả về format [{ "url": "..." }]',
-        CORS: 'Lỗi kết nối (CORS). Vui lòng kiểm tra cấu hình n8n webhook "Allowed Origins" là "*" hoặc domain của GitHub Pages.'
+        MISSING_URL: 'Chưa cấu hình Webhook URL.',
+        SERVER_ERROR: 'Lỗi máy chủ',
+        NO_IMAGE: 'Server không trả về link ảnh hợp lệ.',
+        CORS: 'Lỗi CORS. Kiểm tra cấu hình n8n.'
     }
 };
 
@@ -21,79 +21,110 @@ const CONFIG = {
 // DOM ELEMENTS
 // ==========================================
 const UI = {
+    // Left Panel Elements
     form: document.getElementById('aiForm'),
     submitBtn: document.getElementById('submitBtn'),
     btnText: document.getElementById('btnText'),
     btnIcon: document.getElementById('btnIcon'),
-    loadingSpinner: document.getElementById('loadingSpinner'),
-    resultArea: document.getElementById('resultArea'),
-    resultImage: document.getElementById('resultImage'),
+    btnSpinner: document.getElementById('btnSpinner'),
     errorMessage: document.getElementById('errorMessage'),
     errorText: document.getElementById('errorText'),
+    
+    // Right Panel Elements (States)
+    placeholderState: document.getElementById('placeholderState'),
+    loadingState: document.getElementById('loadingState'),
+    resultState: document.getElementById('resultState'),
+    
+    // Result Elements
+    resultImage: document.getElementById('resultImage'),
     downloadLink: document.getElementById('downloadLink'),
     downloadBtn: document.getElementById('downloadBtn')
 };
+
+// ==========================================
+// STATE MANAGEMENT
+// ==========================================
+
+/**
+ * Chuyển đổi trạng thái hiển thị của Panel bên phải
+ * @param {'placeholder'|'loading'|'result'} state 
+ */
+function setRightPanelState(state) {
+    // Ẩn tất cả trước
+    UI.placeholderState.classList.add('hidden');
+    UI.loadingState.classList.add('hidden');
+    UI.resultState.classList.add('hidden');
+    
+    // Hiện trạng thái mong muốn
+    if (state === 'placeholder') {
+        UI.placeholderState.classList.remove('hidden');
+    } else if (state === 'loading') {
+        UI.loadingState.classList.remove('hidden');
+        UI.loadingState.classList.add('flex'); // Sử dụng flex để căn giữa nội dung loading
+    } else if (state === 'result') {
+        UI.resultState.classList.remove('hidden');
+    }
+}
+
+/**
+ * Điều khiển trạng thái Loading của nút Submit và Panel phải
+ * @param {boolean} isLoading 
+ */
+function setLoading(isLoading) {
+    if (isLoading) {
+        // Button State
+        UI.submitBtn.disabled = true;
+        UI.submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
+        UI.btnText.textContent = 'Đang khởi tạo...';
+        UI.btnIcon.classList.add('hidden');
+        UI.btnSpinner.classList.remove('hidden');
+        
+        // Reset Error
+        UI.errorMessage.classList.add('hidden');
+        
+        // Switch Right Panel to Loading
+        setRightPanelState('loading'); 
+    } else {
+        // Reset Button State
+        UI.submitBtn.disabled = false;
+        UI.submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        UI.btnText.textContent = 'Tạo ảnh ngay';
+        UI.btnIcon.classList.remove('hidden');
+        UI.btnSpinner.classList.add('hidden');
+    }
+}
+
+/**
+ * Hiển thị lỗi
+ */
+function showError(msg) {
+    UI.errorMessage.classList.remove('hidden');
+    UI.errorText.textContent = msg;
+    setRightPanelState('placeholder'); // Quay về trạng thái chờ nếu lỗi
+}
 
 // ==========================================
 // HELPER FUNCTIONS
 // ==========================================
 
 /**
- * Điều khiển trạng thái Loading của nút Submit
- * @param {boolean} isLoading 
- */
-function setLoading(isLoading) {
-    if (isLoading) {
-        UI.submitBtn.disabled = true;
-        UI.submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
-        UI.btnText.textContent = 'Đang khởi tạo...';
-        UI.btnIcon.classList.add('hidden');
-        UI.loadingSpinner.classList.remove('hidden');
-        
-        // Ẩn lỗi và kết quả cũ
-        UI.errorMessage.classList.add('hidden');
-        UI.resultArea.classList.add('hidden');
-        UI.resultImage.classList.add('opacity-0'); // Reset độ mờ ảnh
-    } else {
-        UI.submitBtn.disabled = false;
-        UI.submitBtn.classList.remove('opacity-75', 'cursor-not-allowed');
-        UI.btnText.textContent = 'Tạo ảnh ngay';
-        UI.btnIcon.classList.remove('hidden');
-        UI.loadingSpinner.classList.add('hidden');
-    }
-}
-
-/**
- * Hiển thị thông báo lỗi
- * @param {string} msg 
- */
-function showError(msg) {
-    UI.errorMessage.classList.remove('hidden');
-    UI.errorText.textContent = msg;
-}
-
-/**
- * Hàm trích xuất URL ảnh tối ưu cho format: [{ "url": "..." }]
- * @param {any} data Dữ liệu JSON từ n8n
- * @returns {string|null} URL ảnh hoặc null
+ * Trích xuất URL ảnh từ phản hồi n8n
  */
 function extractImageUrl(data) {
-    // 1. Kiểm tra chính xác format mảng object: [{ "url": "..." }]
+    // 1. Array format: [{ "url": "..." }]
     if (Array.isArray(data) && data.length > 0) {
-        // Ưu tiên key 'url' như yêu cầu
         if (data[0].url) return data[0].url;
-        
-        // Fallback: Nếu lỡ server đổi tên key sang 'output' hoặc 'image'
         if (data[0].output) return data[0].output;
         if (data[0].image) return data[0].image;
     }
 
-    // 2. Fallback cho trường hợp trả về object đơn lẻ: { "url": "..." }
+    // 2. Object format: { "url": "..." }
     if (data && typeof data === 'object' && !Array.isArray(data)) {
         if (data.url) return data.url;
+        if (data.output) return data.output;
     }
 
-    // 3. Nếu data chính là chuỗi URL
+    // 3. String format
     if (typeof data === 'string' && data.startsWith('http')) {
         return data;
     }
@@ -102,14 +133,12 @@ function extractImageUrl(data) {
 }
 
 /**
- * Xử lý tải ảnh xuống
+ * Tải ảnh xuống máy
  */
 function downloadImage() {
     if (!UI.resultImage.src) return;
     
-    // Tạo tên file theo timestamp
     const fileName = `zimage-${Date.now()}.png`;
-    
     const a = document.createElement('a');
     a.href = UI.resultImage.src;
     a.download = fileName;
@@ -123,7 +152,7 @@ function downloadImage() {
 // EVENT LISTENERS
 // ==========================================
 
-// 1. Gắn sự kiện cho nút download
+// Nút Download
 if(UI.downloadBtn) {
     UI.downloadBtn.addEventListener('click', (e) => {
         e.preventDefault(); 
@@ -131,32 +160,25 @@ if(UI.downloadBtn) {
     });
 }
 
-// 2. Xử lý sự kiện submit form
+// Form Submit
 UI.form.addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    // Kiểm tra cấu hình URL
-    if (CONFIG.WEBHOOK_URL.includes('YOUR-N8N-INSTANCE')) {
+    if (CONFIG.WEBHOOK_URL.includes('YOUR-N8N')) {
         showError(CONFIG.ERROR_MESSAGES.MISSING_URL);
         return;
     }
 
     setLoading(true);
 
-    // Thu thập dữ liệu form
     const formData = new FormData(UI.form);
-    
-    // Chuẩn bị payload gửi đi
     const requestData = {
-        "field-0": formData.get('field-0'), // Prompt
-        "field-1": formData.get('field-1'), // Aspect Ratio
-        "field-2": formData.get('field-2')  // Model
+        "field-0": formData.get('field-0'),
+        "field-1": formData.get('field-1'),
+        "field-2": formData.get('field-2')
     };
 
     try {
-        console.log('Đang gửi dữ liệu:', requestData);
-
-        // Gửi request đến n8n
         const response = await fetch(CONFIG.WEBHOOK_URL, {
             method: 'POST',
             headers: {
@@ -170,46 +192,33 @@ UI.form.addEventListener('submit', async (e) => {
             throw new Error(`${CONFIG.ERROR_MESSAGES.SERVER_ERROR}: ${response.status}`);
         }
 
-        // Parse JSON phản hồi
         const result = await response.json();
-        console.log('Kết quả trả về từ n8n:', result); 
-
-        // Trích xuất URL ảnh với logic mới
         const imageUrl = extractImageUrl(result);
-        console.log('URL ảnh tìm thấy:', imageUrl);
         
         if (imageUrl) {
-            // Gán URL vào thẻ img
-            UI.resultImage.src = imageUrl;
+            // Preload ảnh: Chỉ hiện kết quả khi ảnh đã tải xong hoàn toàn
+            const imgLoader = new Image();
+            imgLoader.src = imageUrl;
             
-            // Xử lý sự kiện khi ảnh tải xong để hiện hiệu ứng fade-in
-            UI.resultImage.onload = () => {
-                UI.resultImage.classList.remove('opacity-0');
-                console.log('Ảnh đã hiển thị thành công');
+            imgLoader.onload = () => {
+                UI.resultImage.src = imageUrl;
+                UI.downloadLink.href = imageUrl;
+                
+                // Chuyển sang trạng thái Result và tắt Loading
+                setRightPanelState('result');
+                setLoading(false);
             };
-
-            // Cập nhật link xem ảnh gốc
-            UI.downloadLink.href = imageUrl;
             
-            // Hiển thị vùng kết quả
-            UI.resultArea.classList.remove('hidden');
-            
-            // Cuộn xuống vùng kết quả
-            setTimeout(() => {
-                UI.resultArea.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }, 100);
+            imgLoader.onerror = () => {
+                throw new Error("Không thể tải hình ảnh từ URL trả về.");
+            };
         } else {
             throw new Error(CONFIG.ERROR_MESSAGES.NO_IMAGE);
         }
 
     } catch (error) {
-        console.error('Lỗi chi tiết:', error);
-        showError(`Tạo ảnh thất bại. ${error.message}`);
-        
-        if (error.message.includes('Failed to fetch')) {
-            showError(CONFIG.ERROR_MESSAGES.CORS);
-        }
-    } finally {
+        console.error(error);
+        showError(`${error.message}`);
         setLoading(false);
     }
 });
