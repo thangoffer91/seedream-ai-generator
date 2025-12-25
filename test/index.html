@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pro Text Editor - Fixed & Proxy</title>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- TinyMCE 6.x (Lưu ý: Đã bỏ plugin 'paste' gây lỗi) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
+
+    <!-- Mammoth.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+
+    <!-- Font Icon -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .tox-statusbar__branding { display: none !important; }
+        .tox-promotion { display: none !important; }
+        
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @keyframes pulse-bg {
+            0% { background-color: rgba(255, 255, 0, 0.1); }
+            50% { background-color: rgba(255, 255, 0, 0.3); }
+            100% { background-color: rgba(255, 255, 0, 0.1); }
+        }
+        .processing-chunk {
+            animation: pulse-bg 1.5s infinite;
+            border-left: 3px solid #f59e0b;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3b82f6',
+                        darkbg: '#0f172a',
+                        darkpanel: '#1e293b',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 text-slate-800 dark:bg-darkbg dark:text-gray-100 transition-colors duration-300">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- CẤU HÌNH ---
+        const DEFAULT_WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/8f519f68-9c8b-49cf-a8de-76c50f5a373b'; 
+        const CHUNK_WORD_LIMIT = 400;
+
+        // --- Component: Header ---
+        const Header = ({ darkMode, setDarkMode, onExport, wordCount, onImportClick, onAutoFix, isFixing, fixProgress, onTestWebhook, useProxy, setUseProxy }) => (
+            <header className="h-16 bg-white dark:bg-darkpanel border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10 relative transition-colors duration-300">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">
+                        <i className="fa-solid fa-pen-nib"></i>
+                    </div>
+                    <div>
+                        <h1 className="font-semibold text-lg leading-tight">ProEditor <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">AI Powered</span></h1>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {isFixing ? (
+                                <span className="text-orange-500 font-bold"><i className="fa-solid fa-spinner fa-spin"></i> {fixProgress}</span>
+                            ) : (
+                                `Tự động lưu • ${wordCount} từ`
+                            )}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer bg-blue-50 dark:bg-slate-800 px-3 py-1.5 rounded border border-blue-200 dark:border-slate-600 hover:bg-blue-100 transition-colors" title="Bật để sửa lỗi kết nối bị chặn (CORS)">
+                        <input 
+                            type="checkbox" 
+                            checked={useProxy} 
+                            onChange={(e) => setUseProxy(e.target.checked)}
+                            disabled={isFixing}
+                            className="w-4 h-4 text-primary rounded focus:ring-primary"
+                        />
+                        <span className="text-blue-700 dark:text-blue-300 font-bold">Dùng Proxy (Sửa lỗi mạng)</span>
+                    </label>
+
+                    <button 
+                        onClick={onTestWebhook}
+                        disabled={isFixing}
+                        className="text-gray-400 hover:text-blue-500 p-2"
+                        title="Ping Webhook để kiểm tra kết nối"
+                    >
+                        <i className="fa-solid fa-network-wired"></i>
+                    </button>
+
+                    <button 
+                        onClick={onAutoFix}
+                        disabled={isFixing}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm ${
+                            isFixing 
+                            ? 'bg-gray-300 cursor-not-allowed text-gray-500' 
+                            : 'bg-orange-500 hover:bg-orange-600 text-white'
+                        }`}
+                        title="Gửi từng đoạn 400 từ tới N8N"
+                    >
+                        <i className="fa-solid fa-wand-magic-sparkles"></i> {isFixing ? 'Đang sửa...' : 'Tự động sửa'}
+                    </button>
+
+                     <button 
+                        onClick={onImportClick}
+                        disabled={isFixing}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
+                        title="Nhập file Word"
+                    >
+                        <i className="fa-solid fa-file-import"></i> Nhập Word
+                    </button>
+
+                    <button 
+                        onClick={() => setDarkMode(!darkMode)}
+                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300"
+                    >
+                        {darkMode ? <i className="fa-solid fa-sun"></i> : <i className="fa-solid fa-moon"></i>}
+                    </button>
+                    
+                    <button 
+                        onClick={onExport}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
+                    >
+                        <i className="fa-solid fa-code"></i> HTML
+                    </button>
+                </div>
+            </header>
+        );
+
+        const Sidebar = () => (
+            <aside className="w-64 bg-gray-50 dark:bg-darkbg border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col h-[calc(100vh-64px)] transition-colors duration-300">
+                <div className="p-4">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Văn bản gần đây</h3>
+                    <ul className="space-y-1">
+                        <li className="bg-white dark:bg-darkpanel p-2 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:border-primary transition-colors">
+                            <div className="flex items-center gap-2">
+                                <i className="fa-regular fa-file-word text-blue-500"></i>
+                                <span className="text-sm font-medium truncate">Báo cáo tài chính.docx</span>
+                            </div>
+                            <span className="text-xs text-gray-400 pl-6 block">Vừa xong</span>
+                        </li>
+                    </ul>
+                </div>
+                
+                <div className="mt-auto p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div className="bg-blue-50 dark:bg-slate-800 p-3 rounded-lg text-sm text-blue-800 dark:text-blue-300">
+                        <p className="font-semibold"><i className="fa-solid fa-lightbulb text-yellow-500 mr-1"></i> Lưu ý quan trọng</p>
+                        <p className="mt-1 text-xs opacity-90">
+                            Nếu gặp lỗi màu đỏ trong Console khi bấm nút "Tự động sửa", hãy đảm bảo đã tích vào ô <b>"Dùng Proxy"</b> trên thanh công cụ.
+                        </p>
+                    </div>
+                </div>
+            </aside>
+        );
+
+        const HtmlModal = ({ isOpen, onClose, content }) => {
+            if (!isOpen) return null;
+            const copyToClipboard = () => {
+                navigator.clipboard.writeText(content);
+                alert('Đã copy mã HTML vào bộ nhớ tạm!');
+            };
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-darkpanel w-full max-w-3xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                            <h3 className="font-bold text-lg dark:text-white">Mã nguồn HTML</h3>
+                            <button onClick={onClose} className="text-gray-500 hover:text-red-500">
+                                <i className="fa-solid fa-times text-xl"></i>
+                            </button>
+                        </div>
+                        <div className="p-0 flex-1 overflow-hidden relative">
+                            <textarea readOnly value={content} className="w-full h-full p-4 font-mono text-sm bg-gray-50 dark:bg-slate-900 text-gray-700 dark:text-gray-300 resize-none outline-none border-none"></textarea>
+                            <button onClick={copyToClipboard} className="absolute top-4 right-4 bg-white dark:bg-darkpanel border border-gray-200 dark:border-gray-600 px-3 py-1 rounded shadow text-xs font-bold hover:bg-gray-50">Copy</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [darkMode, setDarkMode] = useState(false);
+            const [content, setContent] = useState('');
+            const [wordCount, setWordCount] = useState(0);
+            const [showHtml, setShowHtml] = useState(false);
+            const [editorReady, setEditorReady] = useState(false);
+            const [isFixing, setIsFixing] = useState(false);
+            const [fixProgress, setFixProgress] = useState('');
+            const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
+            const [useProxy, setUseProxy] = useState(true); // Mặc định bật Proxy
+            
+            const editorRef = useRef(null);
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                if (darkMode) document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [darkMode]);
+
+            // Hàm tạo URL qua Proxy nếu cần
+            const getTargetUrl = (url) => {
+                // Sử dụng corsproxy.io để bypass CORS. 
+                // Đây là giải pháp client-side nhanh nhất mà không cần sửa server.
+                return useProxy ? `https://corsproxy.io/?${encodeURIComponent(url)}` : url;
+            };
+
+            const handleTestWebhook = async () => {
+                 let url = webhookUrl || prompt("Nhập URL Webhook:", DEFAULT_WEBHOOK_URL);
+                 if(!url) return;
+                 
+                 const finalUrl = getTargetUrl(url);
+                 console.log("Testing connection to:", finalUrl);
+
+                 try {
+                     const res = await fetch(finalUrl, {
+                         method: 'POST',
+                         headers: { 'Content-Type': 'application/json' },
+                         body: JSON.stringify({ test: true, message: "Ping from ProEditor" })
+                     });
+                     
+                     if (res.ok) {
+                         alert(`✅ Kết nối thành công! (Chế độ Proxy: ${useProxy ? 'BẬT' : 'TẮT'})`);
+                     } else {
+                         alert(`⚠️ Server phản hồi lỗi. Mã: ${res.status} (${res.statusText})`);
+                     }
+                 } catch (err) {
+                     console.error("Connection Error:", err);
+                     alert("❌ Lỗi kết nối!\n\nNếu đang bật Proxy mà vẫn lỗi, có thể Webhook URL không đúng.\nNếu đang tắt Proxy, hãy thử BẬT Proxy lên.");
+                 }
+            };
+
+            const handleAutoFix = async () => {
+                let url = webhookUrl;
+                if (!url) {
+                    url = prompt("Nhập địa chỉ Webhook N8N của bạn:", "");
+                    if (!url) return;
+                    setWebhookUrl(url);
+                }
+
+                if (!editorRef.current) return;
+                const editor = editorRef.current;
+                const body = editor.getBody();
+                
+                // Chunking Logic
+                const chunks = [];
+                let currentChunkNodes = [];
+                let currentWordCount = 0;
+                
+                const nodes = Array.from(body.children);
+                
+                for (let i = 0; i < nodes.length; i++) {
+                    const node = nodes[i];
+                    const text = node.innerText || "";
+                    const count = text.trim().split(/\s+/).length;
+                    
+                    if (currentWordCount + count > CHUNK_WORD_LIMIT && currentChunkNodes.length > 0) {
+                        chunks.push([...currentChunkNodes]);
+                        currentChunkNodes = [];
+                        currentWordCount = 0;
+                    }
+                    currentChunkNodes.push(node);
+                    currentWordCount += count;
+                }
+                if (currentChunkNodes.length > 0) chunks.push(currentChunkNodes);
+
+                if (chunks.length === 0) {
+                    alert("Văn bản trống!");
+                    return;
+                }
+
+                setIsFixing(true);
+                let successCount = 0;
+
+                for (let i = 0; i < chunks.length; i++) {
+                    const chunkNodes = chunks[i];
+                    setFixProgress(`Đang xử lý phần ${i + 1}/${chunks.length}...`);
+                    
+                    chunkNodes.forEach(node => node.classList.add('processing-chunk'));
+
+                    try {
+                        const wrapper = document.createElement('div');
+                        const imageMap = {}; 
+                        
+                        chunkNodes.forEach(node => {
+                            const clone = node.cloneNode(true);
+                            const imgs = clone.querySelectorAll('img');
+                            imgs.forEach(img => {
+                                const id = `IMG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                                imageMap[id] = img.outerHTML; 
+                                const placeholder = document.createTextNode(`[[${id}]]`);
+                                img.parentNode.replaceChild(placeholder, img);
+                            });
+                            clone.classList.remove('processing-chunk');
+                            wrapper.appendChild(clone);
+                        });
+
+                        const htmlToSend = wrapper.innerHTML;
+                        const finalUrl = getTargetUrl(url); // Áp dụng Proxy tại đây
+
+                        // Gọi Webhook
+                        const response = await fetch(finalUrl, {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify({ 
+                                html: htmlToSend,
+                                chunkIndex: i,
+                                totalChunks: chunks.length
+                            })
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                        }
+                        
+                        const data = await response.json();
+                        let newHtml = data.html || data.output || data.text;
+
+                        if (!newHtml) {
+                            console.warn("Response missing HTML content");
+                        } else {
+                            Object.keys(imageMap).forEach(id => {
+                                newHtml = newHtml.split(`[[${id}]]`).join(imageMap[id]);
+                            });
+
+                            const firstNode = chunkNodes[0];
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = newHtml;
+                            const newNodes = Array.from(tempDiv.children);
+                            
+                            if(firstNode && firstNode.parentNode) {
+                                newNodes.forEach(newNode => {
+                                    firstNode.parentNode.insertBefore(newNode, firstNode);
+                                });
+                                chunkNodes.forEach(node => {
+                                    if (node.parentNode) node.parentNode.removeChild(node);
+                                });
+                            }
+                            successCount++;
+                        }
+
+                    } catch (err) {
+                        console.error(`ERROR at Chunk ${i+1}:`, err);
+                        chunkNodes.forEach(node => node.classList.remove('processing-chunk'));
+                        
+                        let msg = `Lỗi ở phần ${i+1}: ${err.message}`;
+                        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+                             msg += "\n\nGợi ý: Hãy kiểm tra xem bạn đã bật 'Dùng Proxy' chưa?";
+                        }
+                        
+                        if(!confirm(`${msg}\n\nBạn có muốn tiếp tục phần sau không?`)) {
+                             break;
+                        }
+                    }
+                    chunkNodes.forEach(node => node.classList.remove('processing-chunk'));
+                }
+
+                setIsFixing(false);
+                setFixProgress('');
+                editor.fire('Change'); 
+                alert(`Hoàn tất! Đã xử lý ${successCount}/${chunks.length} phần.`);
+            };
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    mammoth.convertToHtml({arrayBuffer: e.target.result})
+                        .then(function(result){
+                            if(editorRef.current) {
+                                editorRef.current.setContent(result.value);
+                                setContent(result.value);
+                                alert("Đã nhập file thành công!");
+                            }
+                        })
+                        .catch(err => alert("Lỗi đọc file: " + err));
+                };
+                reader.readAsArrayBuffer(file);
+                event.target.value = null;
+            };
+
+            useEffect(() => {
+                if (window.tinymce.get('editor-textarea')) window.tinymce.get('editor-textarea').remove();
+
+                window.tinymce.init({
+                    selector: '#editor-textarea',
+                    height: '100%',
+                    menubar: true,
+                    promotion: false, 
+                    branding: false,
+                    skin: darkMode ? 'oxide-dark' : 'oxide',
+                    content_css: darkMode ? 'dark' : 'default',
+                    // ĐÃ SỬA: Loại bỏ plugin 'paste' để tránh lỗi
+                    plugins: [
+                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
+                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
+                        'insertdatetime', 'media', 'table', 'help', 'wordcount', 'directionality'
+                    ],
+                    toolbar: 'undo redo | blocks | fontfamily fontsize | ' +
+                        'bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter ' +
+                        'alignright alignjustify | bullist numlist outdent indent | lineheight | ' +
+                        'removeformat | image table | help',
+                    font_family_formats: 'Times New Roman=times new roman,times,serif;Arial=arial,helvetica,sans-serif;Verdana=verdana,geneva,sans-serif;Courier New=courier new,courier,monospace',
+                    font_size_formats: '8pt 10pt 11pt 12pt 13pt 14pt 16pt 18pt 24pt 36pt',
+                    line_height_formats: '1 1.15 1.5 2 2.5 3',
+                    
+                    // Cấu hình Paste mới cho TinyMCE 6
+                    paste_data_images: true, 
+                    paste_as_text: false,
+                    paste_merge_formats: true,
+                    paste_webkit_styles: 'color font-size font-family font-weight font-style background-color text-align margin margin-left margin-right margin-top margin-bottom padding line-height text-indent list-style-type border border-collapse width height', 
+                    valid_elements: '*[*]',
+                    extended_valid_elements: '*[*]',
+                    
+                    content_style: `
+                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+                        body { 
+                            font-family: 'Times New Roman', Times, serif; 
+                            font-size: 13pt; 
+                            line-height: 1.5; 
+                            padding: 2cm 2cm; 
+                            max-width: 21cm; 
+                            margin: 0 auto;
+                            background-color: ${darkMode ? '#1e293b' : '#fff'};
+                            color: ${darkMode ? '#e2e8f0' : '#000'};
+                            text-align: justify; 
+                        } 
+                        img { max-width: 100%; height: auto; display: block; margin: 10px auto; }
+                        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                        table td, table th { border: 1px solid ${darkMode ? '#475569' : '#000'}; padding: 5px; }
+                        p { margin-bottom: 0.5em; margin-top: 0; }
+                        .processing-chunk {
+                            background-color: rgba(255, 165, 0, 0.1);
+                            border-left: 3px solid orange;
+                            transition: all 0.3s;
+                        }
+                    `,
+                    setup: (editor) => {
+                        editorRef.current = editor;
+                        editor.on('init', () => {
+                            setEditorReady(true);
+                            editor.setContent(`
+                                <h2 style="text-align: center;">CÔNG CỤ SOẠN THẢO (FIXED & PROXY)</h2>
+                                <p><strong>Tính năng mới cập nhật:</strong></p>
+                                <ul>
+                                    <li><strong>Sửa lỗi TinyMCE:</strong> Đã loại bỏ các cảnh báo màu đỏ trong Console.</li>
+                                    <li><strong>Proxy Bypass CORS:</strong> Đã thêm tùy chọn "Dùng Proxy" ở thanh công cụ. Hãy bật nó lên để gửi dữ liệu tới N8N mà không bị lỗi mạng.</li>
+                                </ul>
+                                <p>&nbsp;</p>
+                                <table style="width: 100%; border-collapse: collapse;" border="1">
+                                    <tbody>
+                                        <tr>
+                                            <td style="background-color: #eee;"><strong>Test Cột 1</strong></td>
+                                            <td style="background-color: #eee;"><strong>Test Cột 2</strong></td>
+                                        </tr>
+                                        <tr>
+                                            <td>Dữ liệu A</td>
+                                            <td>Dữ liệu B</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            `);
+                            const wordPlugin = editor.plugins.wordcount;
+                            if (wordPlugin) setWordCount(wordPlugin.body.getWordCount());
+                        });
+                        editor.on('Change KeyUp', () => {
+                            setContent(editor.getContent());
+                            const wordPlugin = editor.plugins.wordcount;
+                            if (wordPlugin) setWordCount(wordPlugin.body.getWordCount());
+                        });
+                    }
+                });
+            }, [darkMode]);
+
+            return (
+                <div className="flex flex-col h-screen overflow-hidden">
+                    <Header 
+                        darkMode={darkMode} 
+                        setDarkMode={setDarkMode} 
+                        onExport={() => setShowHtml(true)}
+                        wordCount={wordCount}
+                        onImportClick={() => fileInputRef.current.click()}
+                        onAutoFix={handleAutoFix}
+                        isFixing={isFixing}
+                        fixProgress={fixProgress}
+                        onTestWebhook={handleTestWebhook}
+                        useProxy={useProxy}
+                        setUseProxy={setUseProxy}
+                    />
+                    <input type="file" accept=".docx" ref={fileInputRef} style={{display: 'none'}} onChange={handleFileUpload} />
+                    <div className="flex flex-1 overflow-hidden">
+                        <Sidebar />
+                        <main className="flex-1 bg-gray-200 dark:bg-black relative flex flex-col items-center overflow-y-auto">
+                            {!editorReady && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-white z-50">
+                                    <div className="loader"></div>
+                                </div>
+                            )}
+                            <div className="w-full max-w-[23cm] py-8 px-4 flex-1 flex flex-col">
+                                <div className="bg-white dark:bg-darkpanel shadow-lg min-h-[29.7cm] flex flex-col">
+                                    <textarea id="editor-textarea" className="invisible"></textarea>
+                                </div>
+                            </div>
+                        </main>
+                    </div>
+                    <HtmlModal isOpen={showHtml} onClose={() => setShowHtml(false)} content={content || (editorRef.current ? editorRef.current.getContent() : '')} />
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
