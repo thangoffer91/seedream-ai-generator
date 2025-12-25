@@ -1,543 +1,621 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pro Text Editor - Word Compatible + Auto Fix</title>
-    
-    <!-- React & ReactDOM -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- Babel -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- Tailwind CSS -->
+<!doctype html>
+<html lang="vi" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ProEditor — AI Powered</title>
+
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- TinyMCE -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+      tailwind.config = { darkMode: "class" };
+    </script>
 
-    <!-- Mammoth.js -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- React UMD -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 
-    <!-- Font Icon -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <!-- TinyMCE CDN (no API key needed for basic cloud CDN usage; if blocked, replace with your self-host) -->
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+
+    <!-- Mammoth (docx -> html) -->
+    <script src="https://unpkg.com/mammoth@1.6.0/mammoth.browser.min.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        
-        .tox-statusbar__branding { display: none !important; }
-        .tox-promotion { display: none !important; }
-        
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3b82f6;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      /* Scrollbar (nice) */
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-thumb { background: rgba(120,120,120,.35); border-radius: 999px; }
+      ::-webkit-scrollbar-thumb:hover { background: rgba(120,120,120,.5); }
 
-        /* Animation cho vùng đang xử lý */
-        @keyframes pulse-bg {
-            0% { background-color: rgba(255, 255, 0, 0.1); }
-            50% { background-color: rgba(255, 255, 0, 0.3); }
-            100% { background-color: rgba(255, 255, 0, 0.1); }
-        }
-        .processing-chunk {
-            animation: pulse-bg 1.5s infinite;
-            border-left: 3px solid #f59e0b;
-        }
+      /* Loader overlay */
+      .editor-overlay {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,.75);
+        backdrop-filter: blur(2px);
+      }
+      html.dark .editor-overlay { background: rgba(0,0,0,.55); }
+
+      /* Highlight chunk đang xử lý */
+      .processing-chunk {
+        outline: 2px dashed rgba(59, 130, 246, .75);
+        outline-offset: 4px;
+        border-left: 6px solid rgba(59, 130, 246, .85);
+        padding-left: 10px !important;
+        border-radius: 6px;
+        background: rgba(59,130,246,.06);
+      }
+
+      /* Fake A4 paper */
+      .paper {
+        width: min(23cm, 100%);
+        min-height: 29.7cm;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,.10);
+        margin: 0 auto;
+        padding: 18mm 16mm;
+      }
+      html.dark .paper {
+        background: #0b0f17;
+        box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      }
+
+      /* TinyMCE container feel */
+      .tox.tox-tinymce { border-radius: 14px !important; overflow: hidden; }
+      html.dark .tox.tox-tinymce { border: 1px solid rgba(255,255,255,.08) !important; }
     </style>
-    
+  </head>
+
+  <body class="h-full bg-slate-50 text-slate-900 dark:bg-[#070A12] dark:text-slate-100">
+    <div id="root" class="h-full"></div>
+
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3b82f6',
-                        darkbg: '#0f172a',
-                        darkpanel: '#1e293b',
-                    }
-                }
-            }
+      const { useEffect, useMemo, useRef, useState } = React;
+
+      // ====== CONFIG ======
+      const DEFAULT_WEBHOOK =
+        "https://rasp.nthang91.io.vn/webhook/8f519f68-9c8b-49cf-a8de-76c50f5a373b";
+
+      const DEMO_HTML = `
+        <h1>ProEditor — Demo</h1>
+        <p>Đây là nội dung demo để test editor. Bạn có thể nhập Word (.docx), sửa nội dung, rồi bấm <b>Tự động sửa</b> để gửi từng đoạn qua webhook AI.</p>
+        <h2>Checklist</h2>
+        <ul>
+          <li>Import .docx (Mammoth)</li>
+          <li>Editor WYSIWYG (TinyMCE)</li>
+          <li>Auto Fix chia chunk theo block node</li>
+          <li>Restore ảnh bằng placeholder</li>
+        </ul>
+        <h2>Bảng mẫu</h2>
+        <table style="border-collapse: collapse; width: 100%;" border="1">
+          <tr><th>Hạng mục</th><th>Trạng thái</th></tr>
+          <tr><td>Chính tả</td><td>Chờ AI</td></tr>
+          <tr><td>Định dạng</td><td>Chờ AI</td></tr>
+        </table>
+        <p><i>Mẹo:</i> nếu chạy GitHub Pages mà Auto Fix lỗi, khả năng cao là do <b>CORS</b> ở webhook.</p>
+      `;
+
+      // ====== HELPERS ======
+      function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function estimateWordsFromText(text) {
+        const t = (text || "").trim();
+        if (!t) return 0;
+        return t.split(/\s+/).filter(Boolean).length;
+      }
+
+      function pickHtmlFromResponse(json) {
+        if (!json) return "";
+        if (typeof json === "string") return json;
+        return json.html || json.output || json.text || "";
+      }
+
+      function wrapTopLevelChildren(children) {
+        const wrapper = document.createElement("div");
+        children.forEach(n => wrapper.appendChild(n.cloneNode(true)));
+        return wrapper;
+      }
+
+      function replaceImagesWithPlaceholders(rootEl) {
+        const imageMap = new Map();
+        const imgs = rootEl.querySelectorAll("img");
+        imgs.forEach((img, idx) => {
+          const id = `IMG_${Date.now()}_${Math.random().toString(16).slice(2)}_${idx}`;
+          imageMap.set(id, img.outerHTML);
+          const placeholder = document.createTextNode(id);
+          img.replaceWith(placeholder);
+        });
+        return imageMap;
+      }
+
+      function restoreImagesFromPlaceholders(html, imageMap) {
+        let out = html;
+        for (const [id, imgHtml] of imageMap.entries()) {
+          // replace all occurrences
+          out = out.split(id).join(imgHtml);
         }
-    </script>
-</head>
-<body class="bg-gray-50 text-slate-800 dark:bg-darkbg dark:text-gray-100 transition-colors duration-300">
+        return out;
+      }
 
-    <div id="root"></div>
-
-    <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
-
-        // --- CẤU HÌNH ---
-        const DEFAULT_WEBHOOK_URL = 'https://rasp.nthang91.io.vn/webhook/8f519f68-9c8b-49cf-a8de-76c50f5a373b'; 
-        const CHUNK_WORD_LIMIT = 400;
-
-        // --- Component: Header ---
-        const Header = ({ darkMode, setDarkMode, onExport, wordCount, onImportClick, onAutoFix, isFixing, fixProgress, onTestWebhook }) => (
-            <header className="h-16 bg-white dark:bg-darkpanel border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-6 shadow-sm z-10 relative transition-colors duration-300">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">
-                        <i className="fa-solid fa-pen-nib"></i>
-                    </div>
-                    <div>
-                        <h1 className="font-semibold text-lg leading-tight">ProEditor <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full dark:bg-green-900 dark:text-green-300">AI Powered</span></h1>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {isFixing ? (
-                                <span className="text-orange-500 font-bold"><i className="fa-solid fa-spinner fa-spin"></i> {fixProgress}</span>
-                            ) : (
-                                `Tự động lưu • ${wordCount} từ`
-                            )}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* Nút Test Webhook ẩn, chỉ hiện khi cần debug nhưng để tiện tôi sẽ hiển thị icon nhỏ */}
-                    <button 
-                        onClick={onTestWebhook}
-                        disabled={isFixing}
-                        className="text-gray-400 hover:text-blue-500 p-2"
-                        title="Kiểm tra kết nối Webhook (Ping)"
-                    >
-                        <i className="fa-solid fa-network-wired"></i>
-                    </button>
-
-                    <button 
-                        onClick={onAutoFix}
-                        disabled={isFixing}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm ${
-                            isFixing 
-                            ? 'bg-gray-300 cursor-not-allowed text-gray-500' 
-                            : 'bg-orange-500 hover:bg-orange-600 text-white'
-                        }`}
-                        title="Gửi từng đoạn 400 từ tới N8N để xử lý"
-                    >
-                        <i className="fa-solid fa-wand-magic-sparkles"></i> {isFixing ? 'Đang sửa...' : 'Tự động sửa'}
-                    </button>
-
-                     <button 
-                        onClick={onImportClick}
-                        disabled={isFixing}
-                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm disabled:opacity-50"
-                        title="Nhập trực tiếp file .docx từ máy"
-                    >
-                        <i className="fa-solid fa-file-import"></i> Nhập Word
-                    </button>
-
-                    <button 
-                        onClick={() => setDarkMode(!darkMode)}
-                        className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-600 dark:text-gray-300"
-                    >
-                        {darkMode ? <i className="fa-solid fa-sun"></i> : <i className="fa-solid fa-moon"></i>}
-                    </button>
-                    
-                    <button 
-                        onClick={onExport}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
-                    >
-                        <i className="fa-solid fa-code"></i> HTML
-                    </button>
-                    
-                    <button 
-                        onClick={() => alert('Đã lưu nội dung!')}
-                        className="flex items-center gap-2 bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
-                    >
-                        <i className="fa-solid fa-save"></i> Lưu
-                    </button>
-                </div>
-            </header>
+      // ====== MODAL ======
+      function Modal({ open, title, children, onClose }) {
+        if (!open) return null;
+        return React.createElement(
+          "div",
+          { className: "fixed inset-0 z-50 flex items-center justify-center p-4" },
+          React.createElement("div", {
+            className: "absolute inset-0 bg-black/50",
+            onClick: onClose
+          }),
+          React.createElement(
+            "div",
+            { className: "relative z-10 w-full max-w-4xl rounded-2xl bg-white p-4 shadow-2xl dark:bg-[#0B1020] border border-black/5 dark:border-white/10" },
+            React.createElement("div", { className: "flex items-center justify-between gap-3" },
+              React.createElement("div", { className: "text-lg font-semibold" }, title),
+              React.createElement("button", {
+                className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                onClick: onClose
+              }, "Đóng")
+            ),
+            React.createElement("div", { className: "mt-3" }, children)
+          )
         );
+      }
 
-        // --- Component: Sidebar ---
-        const Sidebar = () => (
-            <aside className="w-64 bg-gray-50 dark:bg-darkbg border-r border-gray-200 dark:border-gray-700 hidden md:flex flex-col h-[calc(100vh-64px)] transition-colors duration-300">
-                <div className="p-4">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Văn bản gần đây</h3>
-                    <ul className="space-y-1">
-                        <li className="bg-white dark:bg-darkpanel p-2 rounded-md border border-gray-200 dark:border-gray-700 shadow-sm cursor-pointer hover:border-primary transition-colors">
-                            <div className="flex items-center gap-2">
-                                <i className="fa-regular fa-file-word text-blue-500"></i>
-                                <span className="text-sm font-medium truncate">Báo cáo tài chính.docx</span>
-                            </div>
-                            <span className="text-xs text-gray-400 pl-6 block">Vừa xong</span>
-                        </li>
-                    </ul>
-                </div>
-                
-                <div className="mt-auto p-4 border-t border-gray-200 dark:border-gray-700">
-                    <div className="bg-blue-50 dark:bg-slate-800 p-3 rounded-lg text-sm text-blue-800 dark:text-blue-300">
-                        <p className="font-semibold"><i className="fa-solid fa-lightbulb text-yellow-500 mr-1"></i> Tính năng mới</p>
-                        <p className="mt-1 text-xs opacity-90">Nút "Tự động sửa" chia nhỏ văn bản và gửi đến N8N. Nếu không chạy, hãy kiểm tra Console (F12) xem có lỗi CORS không.</p>
-                    </div>
-                </div>
-            </aside>
-        );
+      // ====== APP ======
+      function App() {
+        const editorRef = useRef(null);
+        const [isEditorReady, setEditorReady] = useState(false);
 
-        // --- Component: HTML Modal ---
-        const HtmlModal = ({ isOpen, onClose, content }) => {
-            if (!isOpen) return null;
-            const copyToClipboard = () => {
-                navigator.clipboard.writeText(content);
-                alert('Đã copy mã HTML vào bộ nhớ tạm!');
-            };
-            return (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-darkpanel w-full max-w-3xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                            <h3 className="font-bold text-lg dark:text-white">Mã nguồn HTML</h3>
-                            <button onClick={onClose} className="text-gray-500 hover:text-red-500">
-                                <i className="fa-solid fa-times text-xl"></i>
-                            </button>
-                        </div>
-                        <div className="p-0 flex-1 overflow-hidden relative">
-                            <textarea readOnly value={content} className="w-full h-full p-4 font-mono text-sm bg-gray-50 dark:bg-slate-900 text-gray-700 dark:text-gray-300 resize-none outline-none border-none"></textarea>
-                            <button onClick={copyToClipboard} className="absolute top-4 right-4 bg-white dark:bg-darkpanel border border-gray-200 dark:border-gray-600 px-3 py-1 rounded shadow text-xs font-bold hover:bg-gray-50">Copy</button>
-                        </div>
-                    </div>
-                </div>
-            );
-        };
+        const [dark, setDark] = useState(false);
+        const [content, setContent] = useState(DEMO_HTML);
 
-        // --- Main App Component ---
-        const App = () => {
-            const [darkMode, setDarkMode] = useState(false);
-            const [content, setContent] = useState('');
-            const [wordCount, setWordCount] = useState(0);
-            const [showHtml, setShowHtml] = useState(false);
-            const [editorReady, setEditorReady] = useState(false);
-            const [isFixing, setIsFixing] = useState(false);
-            const [fixProgress, setFixProgress] = useState('');
-            const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK_URL);
-            
-            const editorRef = useRef(null);
-            const fileInputRef = useRef(null);
+        const [wordCount, setWordCount] = useState(0);
+        const [isFixing, setFixing] = useState(false);
+        const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-            useEffect(() => {
-                if (darkMode) document.documentElement.classList.add('dark');
-                else document.documentElement.classList.remove('dark');
-            }, [darkMode]);
+        const [showHtml, setShowHtml] = useState(false);
+        const [webhookUrl, setWebhookUrl] = useState(DEFAULT_WEBHOOK);
 
-            // --- TEST CONNECTION ---
-            const handleTestWebhook = async () => {
-                 let url = webhookUrl || prompt("Nhập URL Webhook:", DEFAULT_WEBHOOK_URL);
-                 if(!url) return;
-                 
-                 console.log("Đang test kết nối tới:", url);
-                 try {
-                     // Gửi một dummy request
-                     const res = await fetch(url, {
-                         method: 'POST',
-                         headers: { 'Content-Type': 'application/json' },
-                         body: JSON.stringify({ test: true, message: "Ping from ProEditor" })
-                     });
-                     
-                     if (res.ok) {
-                         alert("✅ Kết nối thành công! N8N đã nhận request 200 OK.");
-                     } else {
-                         alert(`⚠️ Kết nối thất bại. Mã lỗi: ${res.status} (${res.statusText})`);
-                     }
-                 } catch (err) {
-                     console.error("Lỗi kết nối:", err);
-                     alert("❌ Lỗi mạng hoặc CORS! Hãy mở Console (F12) để xem chi tiết.\n\nLỗi thường gặp: Trình duyệt chặn request đến domain khác (CORS Blocked).");
-                 }
-            };
+        const fileInputRef = useRef(null);
 
-            // --- AUTO FIX LOGIC ---
-            const handleAutoFix = async () => {
-                let url = webhookUrl;
-                if (!url) {
-                    url = prompt("Nhập địa chỉ Webhook N8N của bạn:", "");
-                    if (!url) return;
-                    setWebhookUrl(url);
-                }
+        // Apply dark mode class
+        useEffect(() => {
+          document.documentElement.classList.toggle("dark", !!dark);
+        }, [dark]);
 
-                if (!editorRef.current) return;
-                const editor = editorRef.current;
-                const body = editor.getBody();
-                
-                const chunks = [];
-                let currentChunkNodes = [];
-                let currentWordCount = 0;
-                
-                const nodes = Array.from(body.children);
-                
-                for (let i = 0; i < nodes.length; i++) {
-                    const node = nodes[i];
-                    const text = node.innerText || "";
-                    const count = text.trim().split(/\s+/).length;
-                    
-                    if (currentWordCount + count > CHUNK_WORD_LIMIT && currentChunkNodes.length > 0) {
-                        chunks.push([...currentChunkNodes]);
-                        currentChunkNodes = [];
-                        currentWordCount = 0;
-                    }
-                    currentChunkNodes.push(node);
-                    currentWordCount += count;
-                }
-                if (currentChunkNodes.length > 0) chunks.push(currentChunkNodes);
+        // Init / Re-init TinyMCE when dark changes
+        useEffect(() => {
+          let cancelled = false;
 
-                if (chunks.length === 0) {
-                    alert("Văn bản trống!");
-                    return;
-                }
+          async function init() {
+            setEditorReady(false);
 
-                setIsFixing(true);
-                let successCount = 0;
+            // Destroy existing editor if any
+            if (tinymce?.get("editor-textarea")) {
+              try { tinymce.get("editor-textarea").remove(); } catch (e) {}
+            }
 
-                for (let i = 0; i < chunks.length; i++) {
-                    const chunkNodes = chunks[i];
-                    setFixProgress(`Đang xử lý phần ${i + 1}/${chunks.length}...`);
-                    
-                    chunkNodes.forEach(node => node.classList.add('processing-chunk'));
+            // Small delay to let DOM settle
+            await sleep(10);
+            if (cancelled) return;
 
-                    try {
-                        const wrapper = document.createElement('div');
-                        const imageMap = {}; 
-                        
-                        chunkNodes.forEach(node => {
-                            const clone = node.cloneNode(true);
-                            const imgs = clone.querySelectorAll('img');
-                            imgs.forEach(img => {
-                                const id = `IMG_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-                                imageMap[id] = img.outerHTML; 
-                                const placeholder = document.createTextNode(`[[${id}]]`);
-                                img.parentNode.replaceChild(placeholder, img);
-                            });
-                            clone.classList.remove('processing-chunk');
-                            wrapper.appendChild(clone);
-                        });
+            tinymce.init({
+              selector: "#editor-textarea",
+              height: 1100,
+              menubar: true,
+              branding: false,
+              plugins: "lists link image table media wordcount code autoresize",
+              toolbar:
+                "undo redo | blocks | bold italic underline | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | table link image media | removeformat | code",
+              skin: dark ? "oxide-dark" : "oxide",
+              content_css: dark ? "dark" : "default",
+              content_style: dark
+                ? "body{background:#0b0f17;color:#e5e7eb;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;line-height:1.7;} h1,h2,h3{color:#fff}"
+                : "body{background:#fff;color:#0f172a;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;line-height:1.7;}",
+              setup: (editor) => {
+                editorRef.current = editor;
 
-                        const htmlToSend = wrapper.innerHTML;
-                        console.log(`[Chunk ${i+1}] Sending...`, { length: htmlToSend.length });
+                editor.on("init", () => {
+                  if (cancelled) return;
+                  editor.setContent(content || "");
+                  setEditorReady(true);
 
-                        const response = await fetch(url, {
-                            method: 'POST',
-                            mode: 'cors', // Explicitly state CORS requirement
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify({ 
-                                html: htmlToSend,
-                                chunkIndex: i,
-                                totalChunks: chunks.length
-                            })
-                        });
-
-                        if (!response.ok) {
-                            throw new Error(`Server responded with ${response.status}: ${response.statusText}`);
-                        }
-                        
-                        const data = await response.json();
-                        let newHtml = data.html || data.output || data.text;
-
-                        if (!newHtml) {
-                            console.warn("Webhook response missing 'html' field:", data);
-                            // Nếu không có html trả về, coi như không đổi, chỉ xóa highlight
-                        } else {
-                            Object.keys(imageMap).forEach(id => {
-                                newHtml = newHtml.split(`[[${id}]]`).join(imageMap[id]);
-                            });
-
-                            const firstNode = chunkNodes[0];
-                            const tempDiv = document.createElement('div');
-                            tempDiv.innerHTML = newHtml;
-                            const newNodes = Array.from(tempDiv.children);
-                            
-                            newNodes.forEach(newNode => {
-                                body.insertBefore(newNode, firstNode);
-                            });
-                            
-                            chunkNodes.forEach(node => {
-                                if (node.parentNode === body) body.removeChild(node);
-                            });
-                            
-                            successCount++;
-                        }
-
-                    } catch (err) {
-                        console.error(`ERROR at Chunk ${i+1}:`, err);
-                        chunkNodes.forEach(node => node.classList.remove('processing-chunk'));
-                        
-                        let msg = `Lỗi ở phần ${i+1}: ${err.message}`;
-                        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-                             msg += "\n\nNguyên nhân có thể: Lỗi CORS hoặc Webhook chặn kết nối từ trình duyệt.";
-                        }
-                        
-                        if(!confirm(`${msg}\n\nBạn có muốn tiếp tục phần sau không?`)) {
-                             break;
-                        }
-                    }
-                    // Clean up highlight if loop continues without replacement
-                    chunkNodes.forEach(node => node.classList.remove('processing-chunk'));
-                }
-
-                setIsFixing(false);
-                setFixProgress('');
-                editor.fire('Change'); 
-                alert(`Hoàn tất! Đã xử lý ${successCount}/${chunks.length} phần.`);
-            };
-
-            const handleFileUpload = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    mammoth.convertToHtml({arrayBuffer: e.target.result})
-                        .then(function(result){
-                            if(editorRef.current) {
-                                editorRef.current.setContent(result.value);
-                                setContent(result.value);
-                                alert("Đã nhập file thành công!");
-                            }
-                        })
-                        .catch(err => alert("Lỗi đọc file: " + err));
-                };
-                reader.readAsArrayBuffer(file);
-                event.target.value = null;
-            };
-
-            useEffect(() => {
-                if (window.tinymce.get('editor-textarea')) window.tinymce.get('editor-textarea').remove();
-
-                window.tinymce.init({
-                    selector: '#editor-textarea',
-                    height: '100%',
-                    menubar: true,
-                    promotion: false, 
-                    branding: false,
-                    skin: darkMode ? 'oxide-dark' : 'oxide',
-                    content_css: darkMode ? 'dark' : 'default',
-                    plugins: [
-                        'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 'preview',
-                        'anchor', 'searchreplace', 'visualblocks', 'code', 'fullscreen',
-                        'insertdatetime', 'media', 'table', 'help', 'wordcount', 'paste', 'directionality'
-                    ],
-                    toolbar: 'undo redo | blocks | fontfamily fontsize | ' +
-                        'bold italic underline strikethrough | forecolor backcolor | alignleft aligncenter ' +
-                        'alignright alignjustify | bullist numlist outdent indent | lineheight | ' +
-                        'removeformat | image table | help',
-                    font_family_formats: 'Times New Roman=times new roman,times,serif;Arial=arial,helvetica,sans-serif;Verdana=verdana,geneva,sans-serif;Courier New=courier new,courier,monospace',
-                    font_size_formats: '8pt 10pt 11pt 12pt 13pt 14pt 16pt 18pt 24pt 36pt',
-                    line_height_formats: '1 1.15 1.5 2 2.5 3',
-                    paste_data_images: true, 
-                    paste_as_text: false,
-                    paste_merge_formats: true,
-                    paste_retain_style_properties: 'all', 
-                    paste_webkit_styles: 'color font-size font-family font-weight font-style background-color text-align margin margin-left margin-right margin-top margin-bottom padding line-height text-indent list-style-type border border-collapse width height', 
-                    valid_elements: '*[*]',
-                    extended_valid_elements: '*[*]',
-                    content_style: `
-                        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
-                        body { 
-                            font-family: 'Times New Roman', Times, serif; 
-                            font-size: 13pt; 
-                            line-height: 1.5; 
-                            padding: 2cm 2cm; 
-                            max-width: 21cm; 
-                            margin: 0 auto;
-                            background-color: ${darkMode ? '#1e293b' : '#fff'};
-                            color: ${darkMode ? '#e2e8f0' : '#000'};
-                            text-align: justify; 
-                        } 
-                        img { max-width: 100%; height: auto; display: block; margin: 10px auto; }
-                        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                        table td, table th { border: 1px solid ${darkMode ? '#475569' : '#000'}; padding: 5px; }
-                        p { margin-bottom: 0.5em; margin-top: 0; }
-                        .processing-chunk {
-                            background-color: rgba(255, 165, 0, 0.1);
-                            border-left: 3px solid orange;
-                            transition: all 0.3s;
-                        }
-                    `,
-                    setup: (editor) => {
-                        editorRef.current = editor;
-                        editor.on('init', () => {
-                            setEditorReady(true);
-                            editor.setContent(`
-                                <h2 style="text-align: center;">DEMO TỰ ĐỘNG SỬA VĂN BẢN</h2>
-                                <p><strong>Tính năng mới:</strong> Nhấn nút "Tự động sửa" ở trên để gửi văn bản này tới N8N.</p>
-                                <p>Hệ thống sẽ:</p>
-                                <ul>
-                                    <li>Chia văn bản thành các đoạn nhỏ (400 từ).</li>
-                                    <li>Giữ nguyên ảnh (như ảnh bên dưới) mà không gửi đi để tiết kiệm băng thông.</li>
-                                    <li>Cập nhật nội dung đã sửa vào đúng vị trí cũ.</li>
-                                </ul>
-                                <p>&nbsp;</p>
-                                <table style="width: 100%; border-collapse: collapse;" border="1">
-                                    <tbody>
-                                        <tr>
-                                            <td style="background-color: #eee;"><strong>Cột 1</strong></td>
-                                            <td style="background-color: #eee;"><strong>Cột 2</strong></td>
-                                        </tr>
-                                        <tr>
-                                            <td>Nội dung bảng cũng được gửi đi</td>
-                                            <td>Để AI xử lý chính tả/văn phong</td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            `);
-                            const wordPlugin = editor.plugins.wordcount;
-                            if (wordPlugin) setWordCount(wordPlugin.body.getWordCount());
-                        });
-                        editor.on('Change KeyUp', () => {
-                            setContent(editor.getContent());
-                            const wordPlugin = editor.plugins.wordcount;
-                            if (wordPlugin) setWordCount(wordPlugin.body.getWordCount());
-                        });
-                    }
+                  // initial wordcount
+                  try {
+                    const wc = editor.plugins.wordcount?.getCount?.() ?? estimateWordsFromText(editor.getContent({ format: "text" }));
+                    setWordCount(wc);
+                  } catch (e) {}
                 });
-            }, [darkMode]);
 
-            return (
-                <div className="flex flex-col h-screen overflow-hidden">
-                    <Header 
-                        darkMode={darkMode} 
-                        setDarkMode={setDarkMode} 
-                        onExport={() => setShowHtml(true)}
-                        wordCount={wordCount}
-                        onImportClick={() => fileInputRef.current.click()}
-                        onAutoFix={handleAutoFix}
-                        isFixing={isFixing}
-                        fixProgress={fixProgress}
-                        onTestWebhook={handleTestWebhook}
-                    />
-                    <input type="file" accept=".docx" ref={fileInputRef} style={{display: 'none'}} onChange={handleFileUpload} />
-                    <div className="flex flex-1 overflow-hidden">
-                        <Sidebar />
-                        <main className="flex-1 bg-gray-200 dark:bg-black relative flex flex-col items-center overflow-y-auto">
-                            {!editorReady && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-white z-50">
-                                    <div className="loader"></div>
-                                </div>
-                            )}
-                            <div className="w-full max-w-[23cm] py-8 px-4 flex-1 flex flex-col">
-                                <div className="bg-white dark:bg-darkpanel shadow-lg min-h-[29.7cm] flex flex-col">
-                                    <textarea id="editor-textarea" className="invisible"></textarea>
-                                </div>
-                            </div>
-                        </main>
-                    </div>
-                    <HtmlModal isOpen={showHtml} onClose={() => setShowHtml(false)} content={content || (editorRef.current ? editorRef.current.getContent() : '')} />
-                </div>
-            );
-        };
+                const sync = () => {
+                  try {
+                    const html = editor.getContent();
+                    setContent(html);
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
+                    const wc = editor.plugins.wordcount?.getCount?.() ?? estimateWordsFromText(editor.getContent({ format: "text" }));
+                    setWordCount(wc);
+                  } catch (e) {}
+                };
+
+                editor.on("Change KeyUp SetContent Undo Redo", sync);
+              }
+            });
+          }
+
+          init();
+          return () => { cancelled = true; };
+        }, [dark]);
+
+        function handleImportWordClick() {
+          fileInputRef.current?.click?.();
+        }
+
+        async function handleDocxPicked(ev) {
+          const file = ev.target.files?.[0];
+          ev.target.value = ""; // allow re-pick same file
+          if (!file) return;
+
+          try {
+            const arrayBuffer = await file.arrayBuffer();
+            const result = await mammoth.convertToHtml({ arrayBuffer });
+            const html = result?.value || "";
+            const ed = editorRef.current;
+            if (ed) ed.setContent(html);
+            setContent(html);
+            alert("✅ Import Word thành công!");
+          } catch (err) {
+            console.error(err);
+            alert("❌ Import thất bại. Xem console để biết lỗi.");
+          }
+        }
+
+        async function handleCopyHtml() {
+          try {
+            await navigator.clipboard.writeText(content || "");
+            alert("✅ Đã copy HTML!");
+          } catch (e) {
+            alert("❌ Không copy được (trình duyệt chặn clipboard).");
+          }
+        }
+
+        async function testWebhook() {
+          try {
+            const res = await fetch(webhookUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ping: true,
+                source: "ProEditor",
+                time: new Date().toISOString()
+              })
+            });
+
+            if (!res.ok) {
+              alert(`❌ Webhook trả về HTTP ${res.status}. (CORS cũng có thể là nguyên nhân)`);
+              return;
+            }
+
+            // best effort parse
+            let json = null;
+            try { json = await res.json(); } catch (e) {}
+            alert("✅ Webhook OK! " + (json ? "(Có JSON response)" : "(Không đọc được JSON nhưng status OK)"));
+          } catch (err) {
+            console.error(err);
+            alert("❌ Không gọi được webhook. 90% là CORS hoặc mạng.");
+          }
+        }
+
+        async function autoFix() {
+          const ed = editorRef.current;
+          if (!ed) return;
+
+          const CHUNK_WORD_LIMIT = 400;
+          const body = ed.getBody();
+          if (!body) return;
+
+          const topNodes = Array.from(body.children);
+          if (topNodes.length === 0) {
+            alert("Không có nội dung để sửa.");
+            return;
+          }
+
+          // Build chunks by word limit
+          const chunks = [];
+          let current = [];
+          let currentWords = 0;
+
+          for (const node of topNodes) {
+            const w = estimateWordsFromText(node.innerText);
+            if (current.length > 0 && (currentWords + w) > CHUNK_WORD_LIMIT) {
+              chunks.push(current);
+              current = [];
+              currentWords = 0;
+            }
+            current.push(node);
+            currentWords += w;
+          }
+          if (current.length) chunks.push(current);
+
+          setFixing(true);
+          setProgress({ current: 0, total: chunks.length });
+
+          let okCount = 0;
+
+          for (let i = 0; i < chunks.length; i++) {
+            setProgress({ current: i + 1, total: chunks.length });
+
+            const chunkNodes = chunks[i];
+            // Highlight
+            chunkNodes.forEach(n => n.classList.add("processing-chunk"));
+
+            try {
+              // Clone chunk nodes into a wrapper
+              const wrapper = document.createElement("div");
+              chunkNodes.forEach(n => wrapper.appendChild(n.cloneNode(true)));
+
+              // Replace images with placeholders to protect <img>
+              const imageMap = replaceImagesWithPlaceholders(wrapper);
+
+              const htmlToSend = wrapper.innerHTML;
+
+              const res = await fetch(webhookUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  html: htmlToSend,
+                  chunkIndex: i + 1,
+                  totalChunks: chunks.length,
+                  source: "ProEditor"
+                })
+              });
+
+              if (!res.ok) throw new Error("HTTP " + res.status);
+
+              let json;
+              try { json = await res.json(); }
+              catch (e) {
+                // If webhook returns text
+                const txt = await res.text();
+                json = { text: txt };
+              }
+
+              let newHtml = pickHtmlFromResponse(json);
+
+              // If webhook doesn't return html -> skip replace
+              if (!newHtml || !String(newHtml).trim()) {
+                chunkNodes.forEach(n => n.classList.remove("processing-chunk"));
+                continue;
+              }
+
+              // Restore images
+              newHtml = restoreImagesFromPlaceholders(String(newHtml), imageMap);
+
+              // Parse returned HTML and replace old chunk nodes
+              const temp = document.createElement("div");
+              temp.innerHTML = newHtml;
+
+              const newNodes = Array.from(temp.children);
+              const firstOld = chunkNodes[0];
+
+              // Insert new nodes before old chunk
+              for (const nn of newNodes) {
+                body.insertBefore(nn, firstOld);
+              }
+
+              // Remove old nodes
+              chunkNodes.forEach(n => n.remove());
+
+              okCount++;
+            } catch (err) {
+              console.error(err);
+              // Remove highlight
+              chunkNodes.forEach(n => n.classList.remove("processing-chunk"));
+
+              const cont = confirm(
+                "❌ Lỗi khi xử lý chunk " + (i + 1) +
+                ".\nRất có thể do CORS trên GitHub Pages.\n\nBạn có muốn tiếp tục các chunk sau không?"
+              );
+              if (!cont) break;
+            } finally {
+              // Safety: remove highlight from remaining nodes still present
+              Array.from(body.querySelectorAll(".processing-chunk"))
+                .forEach(n => n.classList.remove("processing-chunk"));
+            }
+          }
+
+          // Sync editor state
+          try {
+            ed.fire("Change");
+          } catch (e) {}
+
+          setFixing(false);
+          setProgress({ current: 0, total: 0 });
+          alert(`✅ Auto Fix xong. Sửa thành công: ${okCount}/${chunks.length} chunk.`);
+        }
+
+        const statusText = useMemo(() => {
+          if (isFixing) return `Đang sửa: ${progress.current}/${progress.total}`;
+          return `Words: ${wordCount}`;
+        }, [isFixing, progress, wordCount]);
+
+        return React.createElement(
+          "div",
+          { className: "h-full flex flex-col" },
+
+          // ===== Header =====
+          React.createElement(
+            "header",
+            { className: "sticky top-0 z-40 border-b border-black/5 dark:border-white/10 bg-white/70 dark:bg-[#070A12]/70 backdrop-blur" },
+            React.createElement(
+              "div",
+              { className: "mx-auto max-w-[1400px] px-4 py-3 flex items-center gap-3" },
+
+              // Logo + name
+              React.createElement("div", { className: "flex items-center gap-3" },
+                React.createElement("div", {
+                  className: "h-10 w-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-500 shadow-md"
+                }),
+                React.createElement("div", null,
+                  React.createElement("div", { className: "flex items-center gap-2" },
+                    React.createElement("div", { className: "text-lg font-semibold leading-none" }, "ProEditor"),
+                    React.createElement("span", { className: "text-xs px-2 py-1 rounded-full bg-indigo-600 text-white" }, "AI Powered")
+                  ),
+                  React.createElement("div", { className: "text-xs text-slate-500 dark:text-slate-400" }, statusText)
+                )
+              ),
+
+              React.createElement("div", { className: "flex-1" }),
+
+              // Webhook input
+              React.createElement("div", { className: "hidden md:flex items-center gap-2 max-w-[560px] w-full" },
+                React.createElement("span", { className: "text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap" }, "Webhook"),
+                React.createElement("input", {
+                  className: "w-full rounded-xl px-3 py-2 text-sm bg-slate-100 dark:bg-white/10 border border-black/5 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-sky-500/50",
+                  value: webhookUrl,
+                  onChange: (e) => setWebhookUrl(e.target.value)
+                })
+              ),
+
+              // Actions
+              React.createElement("div", { className: "flex items-center gap-2" },
+                React.createElement("button", {
+                  className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                  onClick: () => setDark(v => !v),
+                  title: "Dark mode"
+                }, dark ? "☀️" : "🌙"),
+
+                React.createElement("button", {
+                  className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                  onClick: testWebhook,
+                  title: "Test Webhook"
+                }, "📡 Test"),
+
+                React.createElement("button", {
+                  className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                  onClick: handleImportWordClick
+                }, "📄 Nhập Word"),
+
+                React.createElement("button", {
+                  className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                  onClick: () => setShowHtml(true)
+                }, "🧾 HTML"),
+
+                React.createElement("button", {
+                  className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                  onClick: () => alert("Đã lưu nội dung! (demo)")
+                }, "💾 Lưu"),
+
+                React.createElement("button", {
+                  className: "rounded-xl px-4 py-2 text-sm font-semibold bg-gradient-to-r from-indigo-600 to-sky-500 text-white shadow-lg hover:opacity-95 disabled:opacity-50",
+                  onClick: autoFix,
+                  disabled: isFixing || !isEditorReady
+                }, isFixing ? "Đang sửa..." : "✨ Tự động sửa")
+              )
+            )
+          ),
+
+          // hidden file input
+          React.createElement("input", {
+            ref: fileInputRef,
+            type: "file",
+            accept: ".docx",
+            className: "hidden",
+            onChange: handleDocxPicked
+          }),
+
+          // ===== Main =====
+          React.createElement(
+            "main",
+            { className: "flex-1 overflow-hidden" },
+            React.createElement(
+              "div",
+              { className: "h-full mx-auto max-w-[1400px] px-4 py-4 grid grid-cols-12 gap-4" },
+
+              // Sidebar
+              React.createElement(
+                "aside",
+                { className: "col-span-12 lg:col-span-3 xl:col-span-2 overflow-hidden" },
+                React.createElement(
+                  "div",
+                  { className: "h-full rounded-2xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4 overflow-auto" },
+                  React.createElement("div", { className: "font-semibold mb-2" }, "Văn bản gần đây"),
+                  React.createElement("div", { className: "text-sm text-slate-600 dark:text-slate-300 space-y-2" },
+                    React.createElement("div", { className: "p-3 rounded-xl bg-slate-100 dark:bg-white/10" }, "📌 Demo Document"),
+                    React.createElement("div", { className: "p-3 rounded-xl bg-slate-100 dark:bg-white/10 opacity-70" }, "📝 Placeholder 1"),
+                    React.createElement("div", { className: "p-3 rounded-xl bg-slate-100 dark:bg-white/10 opacity-70" }, "📝 Placeholder 2")
+                  ),
+                  React.createElement("div", { className: "mt-4 font-semibold mb-2" }, "Mẹo"),
+                  React.createElement("div", { className: "text-sm text-slate-600 dark:text-slate-300 leading-relaxed" },
+                    React.createElement("ul", { className: "list-disc pl-5 space-y-1" },
+                      React.createElement("li", null, "Auto Fix sẽ chia theo block (p, h, ul, table...)"),
+                      React.createElement("li", null, "Mỗi chunk ~400 từ để webhook xử lý ổn"),
+                      React.createElement("li", null, "Nếu GitHub Pages lỗi: kiểm tra CORS trên webhook")
+                    )
+                  )
+                )
+              ),
+
+              // Editor area
+              React.createElement(
+                "section",
+                { className: "col-span-12 lg:col-span-9 xl:col-span-10 overflow-hidden" },
+                React.createElement(
+                  "div",
+                  { className: "h-full rounded-2xl border border-black/5 dark:border-white/10 bg-white/70 dark:bg-white/5 overflow-auto p-4" },
+
+                  React.createElement("div", { className: "paper relative" },
+                    React.createElement("textarea", { id: "editor-textarea" }),
+
+                    !isEditorReady && React.createElement(
+                      "div",
+                      { className: "editor-overlay rounded-2xl" },
+                      React.createElement(
+                        "div",
+                        { className: "flex items-center gap-3 rounded-2xl px-4 py-3 bg-white shadow-lg dark:bg-[#0B1020] border border-black/5 dark:border-white/10" },
+                        React.createElement("div", { className: "h-4 w-4 rounded-full animate-pulse bg-sky-500" }),
+                        React.createElement("div", { className: "text-sm text-slate-700 dark:text-slate-200" }, "Đang khởi tạo editor...")
+                      )
+                    )
+                  )
+                )
+              )
+            )
+          ),
+
+          // ===== HTML Modal =====
+          React.createElement(
+            Modal,
+            { open: showHtml, title: "HTML hiện tại", onClose: () => setShowHtml(false) },
+            React.createElement("div", { className: "flex items-center justify-between gap-2 mb-2" },
+              React.createElement("div", { className: "text-xs text-slate-500 dark:text-slate-400" },
+                "Copy HTML để đem đi debug / paste qua chỗ khác."
+              ),
+              React.createElement("button", {
+                className: "rounded-xl px-3 py-2 text-sm bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15",
+                onClick: handleCopyHtml
+              }, "Copy")
+            ),
+            React.createElement("textarea", {
+              className: "w-full h-[55vh] rounded-2xl p-3 text-xs font-mono bg-slate-100 dark:bg-black/40 border border-black/5 dark:border-white/10 focus:outline-none",
+              readOnly: true,
+              value: content || ""
+            })
+          )
+        );
+      }
+
+      ReactDOM.createRoot(document.getElementById("root")).render(React.createElement(App));
     </script>
-</body>
+  </body>
 </html>
